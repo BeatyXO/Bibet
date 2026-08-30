@@ -81,6 +81,10 @@ async function main() {
       rubric: ["reach", "depth", "durability", "additionality", "public_good_fit"],
       policy_version: "bibet-positive-studionet-v1",
       max_share_bps: 2500,
+      application_close_after: "2026-01-01T00:00:00Z",
+      review_deadline_at: "2026-01-01T00:10:00Z",
+      challenge_deadline_at: "2026-01-01T00:20:00Z",
+      finalization_deadline_at: "2026-01-01T00:30:00Z",
     }),
   ]);
   const roundId = String(await readCount());
@@ -98,13 +102,15 @@ async function main() {
       impact_statement:
         "The BIBET repository contains a deployed GenLayer contract, routed Next.js frontend, wallet mode support, CI checks, schema verification, deterministic allocation tests, and live StudioNet lifecycle scripts for retroactive public-goods funding.",
       evidence_urls: [
-        "https://github.com/BeatyXO/Bibet",
-        "https://bibet-eight.vercel.app/",
-        "https://github.com/BeatyXO/Bibet/blob/main/contracts/bibet.py",
+        "https://raw.githubusercontent.com/BeatyXO/Bibet/main/README.md",
+        "https://raw.githubusercontent.com/BeatyXO/Bibet/main/contracts/bibet.py",
+        "https://raw.githubusercontent.com/BeatyXO/Bibet/main/tests/direct/test_bibet_direct.py",
+        "https://raw.githubusercontent.com/BeatyXO/Bibet/main/.github/workflows/ci.yml",
+        "https://raw.githubusercontent.com/BeatyXO/Bibet/main/package.json",
       ],
       trace_urls: [
-        "https://github.com/BeatyXO/Bibet/blob/main/README.md",
-        "https://github.com/BeatyXO/Bibet/blob/main/tests/direct/allocation.test.ts",
+        "https://bibet-eight.vercel.app/",
+        "https://github.com/BeatyXO/Bibet/commits/main",
       ],
       requested_tags: ["public-goods", "genlayer", "open-source", "retrofunding"],
     }),

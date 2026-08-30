@@ -77,6 +77,10 @@ const roundConfig = {
   rubric: ["reach", "depth", "durability", "additionality", "public_good_fit"],
   policy_version: "bibet-studionet-v1",
   max_share_bps: 2500,
+  application_close_after: "2026-01-01T00:00:00Z",
+  review_deadline_at: "2026-01-01T00:10:00Z",
+  challenge_deadline_at: "2026-01-01T00:20:00Z",
+  finalization_deadline_at: "2026-01-01T00:30:00Z",
 };
 
 const claim = {

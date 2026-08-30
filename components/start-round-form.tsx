@@ -13,6 +13,10 @@ export function StartRoundForm() {
   const [roundWindow, setRoundWindow] = useState("");
   const [roundBudget, setRoundBudget] = useState("");
   const [maxShareBps, setMaxShareBps] = useState("2500");
+  const [applicationCloseAfter, setApplicationCloseAfter] = useState("");
+  const [reviewDeadlineAt, setReviewDeadlineAt] = useState("");
+  const [challengeDeadlineAt, setChallengeDeadlineAt] = useState("");
+  const [finalizationDeadlineAt, setFinalizationDeadlineAt] = useState("");
   const [txState, setTxState] = useState<string | null>(null);
   const [roundTx, setRoundTx] = useState<string | null>(null);
   const [roundId, setRoundId] = useState<string | null>(null);
@@ -35,6 +39,10 @@ export function StartRoundForm() {
         policy_version: "bibet-studionet-v1",
         max_share_bps: Number(maxShareBps),
         planned_budget_gen: roundBudget.trim() || "0",
+        application_close_after: isoDeadline(applicationCloseAfter),
+        review_deadline_at: isoDeadline(reviewDeadlineAt),
+        challenge_deadline_at: isoDeadline(challengeDeadlineAt),
+        finalization_deadline_at: isoDeadline(finalizationDeadlineAt),
       };
       if (config.title.length < 4) throw new Error("Round title must be at least 4 characters.");
       if (config.historical_window.length < 7) throw new Error("Add a clear historical window before starting.");
@@ -77,11 +85,20 @@ export function StartRoundForm() {
       <label>Historical window<input value={roundWindow} onChange={(event) => setRoundWindow(event.target.value)} placeholder="Example: 2026-01-01/2026-06-30" /></label>
       <label>Max recipient share bps<input value={maxShareBps} onChange={(event) => setMaxShareBps(event.target.value)} placeholder="2500" /></label>
       <label>Planned budget note<input value={roundBudget} onChange={(event) => setRoundBudget(event.target.value)} placeholder="Example: 50000 GEN" /></label>
+      <label>Application close deadline<input type="datetime-local" value={applicationCloseAfter} onChange={(event) => setApplicationCloseAfter(event.target.value)} /></label>
+      <label>Review deadline<input type="datetime-local" value={reviewDeadlineAt} onChange={(event) => setReviewDeadlineAt(event.target.value)} /></label>
+      <label>Challenge deadline<input type="datetime-local" value={challengeDeadlineAt} onChange={(event) => setChallengeDeadlineAt(event.target.value)} /></label>
+      <label>Finalization deadline<input type="datetime-local" value={finalizationDeadlineAt} onChange={(event) => setFinalizationDeadlineAt(event.target.value)} /></label>
       <button className="primary formSubmit" onClick={startRound} disabled={!!busy}><Plus size={16} />Start new round</button>
       {!address && <button className="secondaryAction" onClick={openWallet}>Connect wallet first <ArrowUpRight size={14} /></button>}
       {txState && <div className="txState">{txState}{roundTx && <a href={explorerTx(roundTx)} target="_blank">View transaction <ExternalLink size={12} /></a>}{roundId && <a href={`/rounds/${roundId}`}>Open round {roundId} <ArrowUpRight size={12} /></a>}</div>}
     </div>
   );
+}
+
+function isoDeadline(value: string) {
+  if (!value.trim()) return "";
+  return `${value}:00Z`;
 }
 
 async function discoverCreatedRound(before: number, creator: string, title: string, historicalWindow: string) {

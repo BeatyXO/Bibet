@@ -30,6 +30,7 @@ class BibetProtocol(gl.Contract):
     MAX_CHALLENGES = 80
     SCORE_TOLERANCE = 5
     DEFAULT_MAX_SHARE_BPS = 2500
+    MIN_CHALLENGE_SECONDS = 3600
     ALLOWED_CHALLENGE_FIELDS = (
         "eligibility",
         "evidence_quality",
@@ -135,19 +136,63 @@ class BibetProtocol(gl.Contract):
         max_share_bps = int(config.get("max_share_bps", self.DEFAULT_MAX_SHARE_BPS))
         if max_share_bps <= 0 or max_share_bps > 10000:
             raise gl.vm.UserError("EXPECTED_BAD_MAX_SHARE")
+        historical_window = self._bounded_text(config.get("historical_window"), 21, 80, "EXPECTED_BAD_WINDOW")
+        parts = historical_window.split("/")
+        if len(parts) != 2 or not self._valid_date(parts[0]) or not self._valid_date(parts[1]) or parts[0] > parts[1]:
+            raise gl.vm.UserError("EXPECTED_BAD_WINDOW")
+        application_close_after = self._optional_timestamp(config.get("application_close_after", ""))
+        review_deadline_at = self._optional_timestamp(config.get("review_deadline_at", ""))
+        challenge_deadline_at = self._optional_timestamp(config.get("challenge_deadline_at", ""))
+        finalization_deadline_at = self._optional_timestamp(config.get("finalization_deadline_at", ""))
+        if application_close_after and review_deadline_at and application_close_after > review_deadline_at:
+            raise gl.vm.UserError("EXPECTED_BAD_DEADLINE_ORDER")
+        if review_deadline_at and challenge_deadline_at and review_deadline_at > challenge_deadline_at:
+            raise gl.vm.UserError("EXPECTED_BAD_DEADLINE_ORDER")
+        if challenge_deadline_at and finalization_deadline_at and challenge_deadline_at > finalization_deadline_at:
+            raise gl.vm.UserError("EXPECTED_BAD_DEADLINE_ORDER")
         return {
             "title": self._bounded_text(config.get("title"), 4, self.MAX_TITLE, "EXPECTED_BAD_TITLE"),
             "round_type": "retroactive_public_goods",
-            "historical_window": self._bounded_text(config.get("historical_window"), 7, 80, "EXPECTED_BAD_WINDOW"),
+            "historical_window": historical_window,
             "rubric": ["reach", "depth", "durability", "additionality", "public_good_fit"],
             "policy_version": self._bounded_text(config.get("policy_version", "bibet-studionet-v1"), 4, 60, "EXPECTED_BAD_POLICY"),
             "max_share_bps": max_share_bps,
             "planned_budget_gen": str(config.get("planned_budget_gen", "0"))[:40],
-            "application_close_after": str(config.get("application_close_after", ""))[:40],
-            "review_deadline_at": str(config.get("review_deadline_at", ""))[:40],
-            "challenge_deadline_at": str(config.get("challenge_deadline_at", ""))[:40],
-            "finalization_deadline_at": str(config.get("finalization_deadline_at", ""))[:40],
+            "application_close_after": application_close_after,
+            "review_deadline_at": review_deadline_at,
+            "challenge_deadline_at": challenge_deadline_at,
+            "finalization_deadline_at": finalization_deadline_at,
         }
+
+    def _valid_date(self, value: str) -> bool:
+        if len(value) != 10:
+            return False
+        if value[4] != "-" or value[7] != "-":
+            return False
+        year = value[0:4]
+        month = value[5:7]
+        day = value[8:10]
+        if not (year.isdigit() and month.isdigit() and day.isdigit()):
+            return False
+        month_i = int(month)
+        day_i = int(day)
+        return month_i >= 1 and month_i <= 12 and day_i >= 1 and day_i <= 31
+
+    def _optional_timestamp(self, value) -> str:
+        text = str(value or "").strip()
+        if text == "":
+            return ""
+        if len(text) < 20 or len(text) > 40 or text[4] != "-" or text[7] != "-" or text[10] != "T" or not text.endswith("Z"):
+            raise gl.vm.UserError("EXPECTED_BAD_DEADLINE")
+        if not self._valid_date(text[:10]):
+            raise gl.vm.UserError("EXPECTED_BAD_DEADLINE")
+        return text
+
+    def _completion_in_window(self, completion_date: str, historical_window: str) -> bool:
+        if not self._valid_date(completion_date):
+            return False
+        parts = historical_window.split("/")
+        return len(parts) == 2 and completion_date >= parts[0] and completion_date <= parts[1]
 
     def _canonical_claim(self, raw, claim_id: str, contributor: str, submitted_at: str):
         claim = self._load(raw)
@@ -162,7 +207,7 @@ class BibetProtocol(gl.Contract):
             "submitted_at": submitted_at,
             "artifact_id": self._bounded_text(claim.get("artifact_id"), 3, self.MAX_ARTIFACT, "EXPECTED_BAD_ARTIFACT"),
             "title": self._bounded_text(claim.get("title", claim.get("artifact_id")), 3, self.MAX_TITLE, "EXPECTED_BAD_CLAIM_TITLE"),
-            "completion_date": self._bounded_text(claim.get("completion_date"), 8, 32, "EXPECTED_BAD_COMPLETION_DATE"),
+            "completion_date": self._bounded_text(claim.get("completion_date"), 10, 10, "EXPECTED_BAD_COMPLETION_DATE"),
             "impact_statement": self._bounded_text(claim.get("impact_statement"), 12, self.MAX_IMPACT, "EXPECTED_BAD_IMPACT_STATEMENT"),
             "evidence_urls": self._urls(claim.get("evidence_urls", [])),
             "trace_urls": self._optional_list(claim.get("trace_urls"), 5, self.MAX_URL, "EXPECTED_BAD_TRACE_URL"),
@@ -318,6 +363,8 @@ class BibetProtocol(gl.Contract):
             raise gl.vm.UserError("EXPECTED_CLAIM_LIMIT")
         claim_id = str(len(data["claims"]) + 1)
         claim = self._canonical_claim(claim_json, claim_id, self._sender(), self._now())
+        if not self._completion_in_window(claim["completion_date"], data.get("config", {}).get("historical_window", "")):
+            raise gl.vm.UserError("EXPECTED_COMPLETION_OUTSIDE_WINDOW")
         for item in data["claims"]:
             if item.get("artifact_id", "").lower() == claim["artifact_id"].lower():
                 raise gl.vm.UserError("EXPECTED_DUPLICATE_ARTIFACT")
@@ -336,6 +383,8 @@ class BibetProtocol(gl.Contract):
         update = self._canonical_claim(claim_json, claim["id"], claim["contributor"], claim["submitted_at"])
         if update["artifact_id"].lower() != claim["artifact_id"].lower():
             raise gl.vm.UserError("EXPECTED_IMMUTABLE_ARTIFACT")
+        if not self._completion_in_window(update["completion_date"], data.get("config", {}).get("historical_window", "")):
+            raise gl.vm.UserError("EXPECTED_COMPLETION_OUTSIDE_WINDOW")
         update["updated_at"] = self._now()
         data["claims"][int(claim_id) - 1] = update
         self.rounds[round_id] = self._save(data)
@@ -499,6 +548,9 @@ class BibetProtocol(gl.Contract):
         self._require_creator(data)
         if data["status"] != "REVIEW":
             raise gl.vm.UserError("EXPECTED_FINALIZATION_WINDOW")
+        challenge_deadline = str(data.get("config", {}).get("challenge_deadline_at", ""))
+        if not challenge_deadline or self._now() < challenge_deadline:
+            raise gl.vm.UserError("EXPECTED_CHALLENGE_DEADLINE")
         if any(item.get("status") in ("OPEN", "ANSWERED") for item in data.get("challenges", [])):
             raise gl.vm.UserError("EXPECTED_RESOLVED_CHALLENGES")
         missing = [claim["id"] for claim in data.get("claims", []) if claim["id"] not in data.get("verdicts", {})]
@@ -531,6 +583,9 @@ class BibetProtocol(gl.Contract):
             deadline = str(config.get("finalization_deadline_at", ""))
             if not deadline or now < deadline:
                 raise gl.vm.UserError("EXPECTED_FINALIZATION_DEADLINE")
+            challenge_deadline = str(config.get("challenge_deadline_at", ""))
+            if not challenge_deadline or now < challenge_deadline:
+                raise gl.vm.UserError("EXPECTED_CHALLENGE_DEADLINE")
             if any(item.get("status") in ("OPEN", "ANSWERED") for item in data.get("challenges", [])):
                 raise gl.vm.UserError("EXPECTED_RESOLVED_CHALLENGES")
             missing = [claim["id"] for claim in data.get("claims", []) if claim["id"] not in data.get("verdicts", {})]
