@@ -489,7 +489,6 @@ class BibetProtocol(gl.Contract):
         challenge["status"] = "ADJUDICATED"
         challenge["appeal_result"] = appeal_verdict
         challenge["resolved_at"] = self._now()
-        data.setdefault("verdict_history", {}).setdefault(challenge["claim_id"], []).append(original_verdict)
         data.setdefault("verdict_history", {}).setdefault(challenge["claim_id"], []).append(appeal_verdict)
         data.setdefault("verdicts", {})[challenge["claim_id"]] = appeal_verdict
         self.rounds[round_id] = self._save(data)
