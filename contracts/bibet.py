@@ -197,6 +197,8 @@ class BibetProtocol(gl.Contract):
         return result
 
     def _equivalent_verdict(self, a, b) -> bool:
+        if a.get("eligibility") == "INSUFFICIENT_EVIDENCE" and b.get("eligibility") == "INSUFFICIENT_EVIDENCE":
+            return int(a.get("normalized_impact_score", 0)) == 0 and int(b.get("normalized_impact_score", 0)) == 0
         for key in ("eligibility", "evidence_quality", "attribution", "duplication_risk", "confidence_band"):
             if a.get(key) != b.get(key):
                 return False
