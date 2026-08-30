@@ -7,8 +7,8 @@ The product idea is unchanged: BIBET funds what already proved useful. GenLayer 
 ## Current canonical deployment
 
 - Network: GenLayer StudioNet
-- Contract: `0x7DB196d1611D2A20C0eC0619c3f6dC7c1b2cc6D5`
-- Deployment transaction: `0x240a749588d42cb30dd306caecd78924b399a4882d8866001b3cd90a984641bd`
+- Contract: `0xa64312FDbfE24713c6fbab859385bb6C26420258`
+- Deployment transaction: `0x6c04b673dbe11571378fd714da89937b92989557c86067e1a8fd8fee94c86ad2`
 - Explorer: `https://explorer-studio.genlayer.com`
 - Vercel app: `https://bibet-eight.vercel.app/`
 
@@ -22,7 +22,7 @@ Without GenLayer, BIBET would need either a centralized reviewer/admin or purely
 
 Target flow:
 
-`DRAFT → FUNDING → OPEN → REVIEW → CHALLENGE → REVIEW → FINALIZED`
+`DRAFT → FUNDING → OPEN → REVIEW → FINALIZED`
 
 Cancellation is only allowed before a round is opened. Once a round is `OPEN`, the creator cannot cancel and seize funds. After `FINALIZED`, only legitimate settlement actions remain: contributor allocation claims and creator withdrawal of unallocated budget.
 
@@ -70,9 +70,7 @@ Configured bounds include title 120 chars, artifact id 96 chars, impact statemen
 
 ## Challenge model
 
-Challenges target reviewed claims only and must name an allowed verdict field. Duplicate active challenges against the same claim/field are rejected. Contributors can respond once while the challenge is open. Creator resolution is constrained: if upheld, the affected verdict is downgraded to `INSUFFICIENT_EVIDENCE` with zero score; unrelated fields cannot be arbitrarily rewritten. Finalization is blocked while unresolved challenges exist.
-
-Future versions should move semantic challenge adjudication into another GenLayer review path.
+Challenges target reviewed claims only and must name an allowed verdict field. Duplicate challenges against the same claim, field, and verdict version are rejected. Contributors can respond once while the challenge is open. `adjudicate_challenge(round_id, challenge_id)` is the semantic challenge review write: GenLayer validators evaluate the original claim, original verdict, challenger evidence/reason, and contributor response, then write a new verdict version when consensus succeeds. Finalization is blocked while unresolved challenges exist.
 
 ## Frontend
 
@@ -91,7 +89,7 @@ Injected EIP-1193 wallets are the primary production path. The generated browser
 
 ```bash
 NEXT_PUBLIC_GENLAYER_NETWORK=studionet
-NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS=0x7DB196d1611D2A20C0eC0619c3f6dC7c1b2cc6D5
+NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS=0xa64312FDbfE24713c6fbab859385bb6C26420258
 NEXT_PUBLIC_GENLAYER_EXPLORER_URL=https://explorer-studio.genlayer.com
 ```
 
@@ -116,31 +114,31 @@ npm run verify:schema
 Latest results:
 
 - GenVM lint: passed, 3 checks
-- Schema verification: passed for `0x7DB196d1611D2A20C0eC0619c3f6dC7c1b2cc6D5`
+- Schema verification: passed for `0xa64312FDbfE24713c6fbab859385bb6C26420258`
 - TypeScript: passed
 - ESLint: passed
 - Next build: passed
-- Direct tests: 43 passed, 0 failed
+- Direct tests: 64 passed, 0 failed
 - StudioNet integration: 14 passed, 0 failed
 
 ## Fresh StudioNet lifecycle proof
 
 All transactions below finalized with status `5` and result `6` on the fresh contract:
 
-- `create_round`: `0x6f5d987a9a95686ff5e4f1599a1c56e9d5d9409d3c30a8fbe82f34107f9f12af`
-- `fund_round`: `0xa98177760006f3adeb98383ace158e4d9e18f484c78bf8d367fa982c832a82c5`
-- `lock_round`: `0xdff19aa18c773f92e73a400b7ce6abdf4e2d75ff7bc348b4df80c21b97040d2e`
-- `submit_trace_claim`: `0xd28f234bdc11df0e874b9b15d2f4f2c73f40546276a17c5d48d1797479467fcf`
-- `update_claim_before_close`: `0xdea36b509d66d8a6c47e22156f60d9b080e0705e60a3c97987b19b0b8c47a132`
-- `close_applications`: `0xbe8bae44804afc1ea554da408291418594a0babf07fed811d17347767e7d5506`
-- `request_impact_review`: `0x4a04a054c4c8daf64d29fbe1ceaa8aaf19c812d9f0c19e08b1356a4636448337`
-- `open_challenge`: `0x11df21fcb3c95b008a6de78b26f6435120eeee088cb1078ba9dd69343fa8d548`
-- `respond_to_challenge`: `0x42487200481c9c5dfd38be3bd66ccfa2461b7fa96d8cbcc65b69ee4d3d7c4f1b`
-- `resolve_challenge`: `0x2ec57665422f861aece85b70494440439dd70f1bcf7842ef12bc857cf5654086`
-- `finalize_round`: `0xc9b48540fed96248155195e05f0b8cc140e68e58f13b7c15d0b5b8ea4f4694af`
-- `withdraw_unallocated_budget`: `0xbc191da18bb28b5ce4204a705d948135d775588d34f31326864780047c3091d4`
-- `create_cancel_round`: `0x5e26b4e9a739be48bff65f30bf0fd8b141ef04a215f93b7fa72d2309ada28e65`
-- `cancel_unopened_round`: `0x46c9843aa2dc80bfe979703f54431845555491b0a6dde7e1a64603e3be31cbac`
+- `create_round`: `0xab670b9255c0ad91c852d36908c71dbe7c2764f18d56b71ec0724d9f793cbb31`
+- `fund_round`: `0x9675eb055dc9cc4173246effcb784ac93b4c2b57e1e3656c846cd047a523e550`
+- `lock_round`: `0x6396a6760f698cbe3f5e6c24924026d497fbbd2065e025e39d4d091ad86144d8`
+- `submit_trace_claim`: `0xe13c0ceb9eff8b90de69701294ff681bb3903af9faa7498cccbda47cdcb17d31`
+- `update_claim_before_close`: `0x2d6566b7266094b81482bfada6a2b649f1f3779f32efa53c0b823c83cc2ed8e7`
+- `close_applications`: `0x28ed44b584d247714388543045bf2850f7cea9d132ed171c2f8a239feb8a3e65`
+- `request_impact_review`: `0x6f2dbc2101e20d94974051b6e4f7afeae351715a13d67ff7eb5844df5ab636e2`
+- `open_challenge`: `0xf6600b52469bf920c479c452c217f7c5e35cb5ea6162e8e95a064beaa2cdd1d4`
+- `respond_to_challenge`: `0x9178175baaa2ce07d100cdda64d86b271be8b33f0e9f211c95bc36d59ecd0d24`
+- `adjudicate_challenge`: `0xd0643a7c69cad5443b2d6d4aa5c799cbb469ad59bdfa27fb96cfb36be70a82ed`
+- `finalize_round`: `0x3be11b71718a02671df025fb8287b29a77ace2123d3995d3e2a56b4e34086709`
+- `withdraw_unallocated_budget`: `0xa85fde653330b4db9c873879960859f7dde36366eee2c6447624b0f34be201ed`
+- `create_cancel_round`: `0xc64295fe8133f979cb7f03fc9ff001145974df0219494aac4888a44bdf971ada`
+- `cancel_unopened_round`: `0xdc12c957b65b4e888999097715a524782c4075214867d99aeb49d61fee4e8edb`
 
 The live evidence was intentionally weak (`https://example.com/`), so the review resolved to `INSUFFICIENT_EVIDENCE`, allocation was zero, and the creator-only unallocated withdrawal path was exercised.
 
@@ -152,6 +150,6 @@ StudioNet live verification is intentionally not part of default PR CI because i
 
 ## Known limitations
 
-- Direct tests are local deterministic/static regression tests, not a full GenLayer simulator harness. The fresh StudioNet lifecycle provides the live GenLayer proof.
-- Challenge resolution is creator-controlled but constrained; semantic challenge adjudication should become a GenLayer review in a later version.
+- Direct tests are local deterministic/static regression tests, not a full GenLayer simulator harness. `npm view genlayer-test version` currently returns 404, so the `genlayer-test/gltest.direct` harness could not be installed from npm in this environment. Fresh StudioNet lifecycle tests provide the live GenLayer proof.
+- A positive-evidence StudioNet harness is included as `npm run test:studionet:positive`. The first live attempt correctly failed its non-zero allocation assertion because validators marked GitHub/Vercel HTML evidence as insufficient to verify CI/tests/attribution; use raw, immutable, public evidence URLs for a non-zero proof.
 - The frontend can read live rounds and afterledgers and create rounds, but full action panels for every lifecycle write are still intentionally limited to avoid pretending unsupported UX is production-complete.

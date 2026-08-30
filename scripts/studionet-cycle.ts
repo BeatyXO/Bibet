@@ -21,6 +21,17 @@ const client = createClient({ chain: studionet, account: creator });
 const oneGen = 1_000_000_000_000_000_000n;
 const txs: Array<{ label: string; hash: string; status?: unknown; result?: unknown }> = [];
 
+function assertAccepted(label: string, receipt: { status?: unknown; statusName?: unknown; result?: unknown; resultName?: unknown }) {
+  const status = receipt.statusName ?? receipt.status;
+  const result = receipt.resultName ?? receipt.result;
+  const accepted = status === "ACCEPTED" || status === 5 || String(status).toUpperCase() === "ACCEPTED";
+  const agreed = result === "MAJORITY_AGREE" || result === 6 || String(result).toUpperCase() === "MAJORITY_AGREE";
+
+  if (!accepted || !agreed) {
+    throw new Error(`${label} was not accepted by GenLayer consensus: status=${String(status)} result=${String(result)}`);
+  }
+}
+
 async function write(label: string, account: ReturnType<typeof createAccount>, functionName: string, args: CalldataValue[] = [], value = 0n) {
   const hash = await client.writeContract({
     account,
@@ -37,6 +48,7 @@ async function write(label: string, account: ReturnType<typeof createAccount>, f
   });
   txs.push({ label, hash, status: receipt.statusName ?? receipt.status, result: receipt.resultName ?? receipt.result });
   console.log(`${label}: ${hash} status=${receipt.statusName ?? receipt.status} result=${receipt.resultName ?? receipt.result}`);
+  assertAccepted(label, receipt);
   return receipt;
 }
 
