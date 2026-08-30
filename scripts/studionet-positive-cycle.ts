@@ -102,7 +102,7 @@ async function main() {
       impact_statement:
         "The BIBET repository contains a deployed GenLayer contract, routed Next.js frontend, wallet mode support, CI checks, schema verification, deterministic allocation tests, and live StudioNet lifecycle scripts for retroactive public-goods funding.",
       evidence_urls: [
-        "https://raw.githubusercontent.com/BeatyXO/Bibet/main/README.md",
+        "https://raw.githubusercontent.com/BeatyXO/Bibet/main/docs/bibet-positive-evidence.md",
         "https://raw.githubusercontent.com/BeatyXO/Bibet/main/contracts/bibet.py",
         "https://raw.githubusercontent.com/BeatyXO/Bibet/main/tests/direct/test_bibet_direct.py",
         "https://raw.githubusercontent.com/BeatyXO/Bibet/main/.github/workflows/ci.yml",

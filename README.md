@@ -7,8 +7,8 @@ The product idea is unchanged: BIBET funds what already proved useful. GenLayer 
 ## Current canonical deployment
 
 - Network: GenLayer StudioNet
-- Contract: `0xa64312FDbfE24713c6fbab859385bb6C26420258`
-- Deployment transaction: `0x6c04b673dbe11571378fd714da89937b92989557c86067e1a8fd8fee94c86ad2`
+- Contract: `0xE6d0e4FED7Eb013f5B8387338C5C909efcc39128`
+- Deployment transaction: `0x02a5e79d883412df32eab8fab5d351622f341f6a9ebc18814f8c1a038521a5b0`
 - Explorer: `https://explorer-studio.genlayer.com`
 - Vercel app: `https://bibet-eight.vercel.app/`
 
@@ -89,7 +89,7 @@ Injected EIP-1193 wallets are the primary production path. The generated browser
 
 ```bash
 NEXT_PUBLIC_GENLAYER_NETWORK=studionet
-NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS=0xa64312FDbfE24713c6fbab859385bb6C26420258
+NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS=0xE6d0e4FED7Eb013f5B8387338C5C909efcc39128
 NEXT_PUBLIC_GENLAYER_EXPLORER_URL=https://explorer-studio.genlayer.com
 ```
 
@@ -114,7 +114,7 @@ npm run verify:schema
 Latest results:
 
 - GenVM lint: passed, 3 checks
-- Schema verification: passed for `0xa64312FDbfE24713c6fbab859385bb6C26420258`
+- Schema verification: passed for `0xE6d0e4FED7Eb013f5B8387338C5C909efcc39128`
 - TypeScript: passed
 - ESLint: passed
 - Next build: passed
