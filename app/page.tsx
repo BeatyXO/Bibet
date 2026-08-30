@@ -1,31 +1,44 @@
-"use client";
-import { useState } from "react";
-import { createAccount, createClient } from "genlayer-js";
-import { studionet } from "genlayer-js/chains";
-import { BIBET_CONTRACT } from "../lib/config";
-import { connectInjectedWallet, createGeneratedKey, getGeneratedAddress, getGeneratedKey, hasInjectedWallet, shortAddress } from "../lib/wallet";
-import { ArrowUpRight, Check, ChevronRight, CircleHelp, Copy, ExternalLink, Layers3, Loader2, Menu, Plus, ShieldCheck, Wallet, X } from "lucide-react";
-
-const rounds = [
-  { id:"24", title:"Open infrastructure / Q2", domain:"Developer tooling", amount:"48,000", claims:12, phase:"FINALIZED", accent:"gold" },
-  { id:"23", title:"Community knowledge commons", domain:"Public education", amount:"31,500", claims:8, phase:"SETTLED", accent:"pink" },
-  { id:"22", title:"Climate data access", domain:"Open data", amount:"72,000", claims:19, phase:"REVIEW", accent:"violet" },
-];
+import Link from "next/link";
+import { ArrowUpRight, ChevronRight } from "lucide-react";
+import { AppShell } from "../components/app-shell";
 
 export default function Home() {
-  const [walletOpen,setWalletOpen]=useState(false); const [mode,setMode]=useState<"none"|"injected"|"generated">("none"); const [mobile,setMobile]=useState(false); const [address,setAddress]=useState<string | null>(null); const [walletError,setWalletError]=useState<string | null>(null); const [connecting,setConnecting]=useState<"injected"|"generated"|null>(null); const [roundTitle,setRoundTitle]=useState("BIBET public goods round"); const [roundWindow,setRoundWindow]=useState("2024-01-01/2026-08-01"); const [roundBudget,setRoundBudget]=useState("0"); const [txState,setTxState]=useState<string | null>(null); const [roundTx,setRoundTx]=useState<string | null>(null);
-  async function chooseInjected(){ setWalletError(null); setConnecting('injected'); try{ const account=await connectInjectedWallet(); setAddress(account); setMode('injected'); }catch(error){ setWalletError(error instanceof Error ? error.message : 'Injected wallet connection failed.'); }finally{ setConnecting(null); } }
-  function chooseGenerated(){ setWalletError(null); setConnecting('generated'); try{ getGeneratedKey() || createGeneratedKey(); const account=getGeneratedAddress(); if(!account) throw new Error('Could not create browser wallet.'); setAddress(account); setMode('generated'); }catch(error){ setWalletError(error instanceof Error ? error.message : 'Browser wallet creation failed.'); }finally{ setConnecting(null); } }
-  async function startRound(){ setTxState(null); setRoundTx(null); try{ if(!address||mode==='none'){ setWalletOpen(true); throw new Error('Connect a wallet before starting a round.'); } const config={title:roundTitle.trim(),round_type:'retroactive_public_goods',historical_window:roundWindow.trim(),rubric:['reach','depth','durability','additionality','public_good_fit'],policy_version:'bibet-studionet-v1',max_share_bps:10000,planned_budget_gen:roundBudget}; if(config.title.length<4) throw new Error('Round title must be at least 4 characters.'); setTxState('Preparing create_round transaction...'); let client; if(mode==='generated'){ const key=getGeneratedKey(); if(!key) throw new Error('Browser wallet key was not found.'); const account=createAccount(key as `0x${string}`); client=createClient({chain:studionet,account}); const hash=await client.writeContract({account,address:BIBET_CONTRACT,functionName:'create_round',args:[JSON.stringify(config)],value:0n,consensusMaxRotations:3}); setRoundTx(hash); setTxState('Waiting for GenLayer consensus...'); const receipt=await client.waitForTransactionReceipt({hash,interval:5000,retries:90}); setTxState(`Round created. Status ${receipt.statusName ?? receipt.status}, result ${receipt.resultName ?? receipt.result}.`); }else{ client=createClient({chain:studionet,account:address as `0x${string}`,provider:window.ethereum}); const hash=await client.writeContract({address:BIBET_CONTRACT,functionName:'create_round',args:[JSON.stringify(config)],value:0n,consensusMaxRotations:3}); setRoundTx(hash); setTxState('Transaction submitted from injected wallet. Waiting for GenLayer consensus...'); const receipt=await client.waitForTransactionReceipt({hash,interval:5000,retries:90}); setTxState(`Round created. Status ${receipt.statusName ?? receipt.status}, result ${receipt.resultName ?? receipt.result}.`); } }catch(error){ setTxState(error instanceof Error ? error.message : 'Could not start the round.'); } }
-  return <main>
-    <header className="nav"><a className="brand" href="#top"><span className="brandMark">B</span><span>BIBET</span></a><nav><a href="#rounds">Rounds</a><a href="#create">Start round</a><a href="#how">How it works</a><a href="#audit">Audit</a></nav><div className="navActions"><span className="network"><i/> STUDIONET</span><button className="walletBtn" onClick={()=>setWalletOpen(true)}><Wallet size={15}/>{address?shortAddress(address):mode==='none'?"Connect wallet":mode==='injected'?"Injected wallet":"Browser wallet"}</button><button className="menu" onClick={()=>setMobile(!mobile)}><Menu size={20}/></button></div></header>
-    {mobile&&<div className="mobileNav"><a href="#rounds">Rounds</a><a href="#create">Start round</a><a href="#how">How it works</a><a href="#audit">Audit</a></div>}
-    <section className="hero" id="top"><div className="heroCopy"><div className="eyebrow"><span/>RETROACTIVE PUBLIC GOODS FUNDING</div><h1>Fund what<br/><em>proved</em> its value.</h1><p className="lead">BIBET turns completed public-good work into accountable funding. Evidence is reviewed by GenLayer validators. Allocation follows a transparent, deterministic formula.</p><div className="heroCtas"><a className="primary" href="#rounds">Explore rounds <ArrowUpRight size={16}/></a><a className="textLink" href="#how">Read the thesis <ChevronRight size={15}/></a></div></div><div className="strata"><div className="strataLabel">IMPACT STRATA <span>HISTORICAL WINDOW / 2024—25</span></div><div className="layers"><div className="layer l1"><b>03</b><span>COMMUNITY REACH</span></div><div className="layer l2"><b>02</b><span>PROVEN DEPTH</span></div><div className="layer l3"><b>01</b><span>ATTRIBUTABLE WORK</span></div><div className="layer l4"><b>00</b><span>EVIDENCE CORE</span></div></div><div className="strataFoot"><span>0.00</span><span>IMPACT BANDS</span><span>1.00</span></div></div></section>
-    <section className="thesis" id="how"><div className="sectionKicker">01 / THE THESIS</div><div><h2>Useful work happened.<br/><em>Now make it count.</em></h2><p>BIBET is for funders who want to reward outcomes, not promises. A locked historical window keeps the question honest: how much credible, attributable public-good impact did this contribution create?</p><a className="textLink" href="#audit">Why consensus matters <ChevronRight size={15}/></a></div><div className="thesisStats"><div><strong>5</strong><span>impact dimensions</span></div><div><strong>0</strong><span>popularity metrics</span></div><div><strong>∞</strong><span>public audit trail</span></div></div></section>
-    <section className="rounds" id="rounds"><div className="sectionTop"><div><div className="sectionKicker">02 / ACTIVE LEDGER</div><h2>Rounds in the field</h2></div><a className="textLink" href="#rounds">View all rounds <ArrowUpRight size={15}/></a></div><div className="roundGrid">{rounds.map(r=><article className="round" key={r.id}><div className={'roundAccent '+r.accent}/><div className="roundHead"><span>ROUND {r.id}</span><span className="status"><i/> {r.phase}</span></div><h3>{r.title}</h3><p>{r.domain}</p><div className="roundMeta"><div><small>LOCKED BUDGET</small><b>{r.amount} <i>GEN</i></b></div><div><small>TRACE CLAIMS</small><b>{r.claims}</b></div></div><a className="roundLink" href={'#round-'+r.id}>Open afterledger <ArrowUpRight size={14}/></a></article>)}</div></section>
-    <section className="createRound" id="create"><div><div className="sectionKicker">03 / START A ROUND</div><h2>Create the funding round</h2><p>Start the on-chain round first, then fund and lock it when the budget is ready.</p></div><div className="roundForm"><label>Round title<input value={roundTitle} onChange={e=>setRoundTitle(e.target.value)} /></label><label>Historical window<input value={roundWindow} onChange={e=>setRoundWindow(e.target.value)} /></label><label>Planned budget note<input value={roundBudget} onChange={e=>setRoundBudget(e.target.value)} /></label><button className="primary formSubmit" onClick={startRound} disabled={txState?.startsWith('Preparing')||txState?.startsWith('Waiting')}><Plus size={16}/>Start new round</button>{txState&&<div className="txState">{txState}{roundTx&&<a href={`https://explorer-studio.genlayer.com/transactions/${roundTx}`} target="_blank">View transaction <ExternalLink size={12}/></a>}</div>}</div></section>
-    <section className="audit" id="audit"><div className="auditVisual"><div className="stamp"><ShieldCheck size={18}/><span>CONSENSUS<br/>VERIFIED</span></div><div className="auditLine"><span>01</span><b>Evidence fetched</b><i>OK</i></div><div className="auditLine"><span>02</span><b>Impact bands normalized</b><i>OK</i></div><div className="auditLine"><span>03</span><b>Allocation calculated</b><i>LOCKED</i></div></div><div className="auditCopy"><div className="sectionKicker">03 / THE AFTERLEDGER</div><h2>See the layers.<br/><em>Trust the record.</em></h2><p>Every finalized round publishes its evidence fingerprints, validator outcome, locked rubric and deterministic allocation. GenLayer judges the meaning of evidence; the contract controls the money.</p><div className="auditNote"><CircleHelp size={16}/><span>Weak or conflicting evidence can resolve as <b>INSUFFICIENT EVIDENCE</b>. BIBET never forces certainty.</span></div></div></section>
-    <footer><div className="brand"><span className="brandMark">B</span><span>BIBET</span></div><span>Fund what proved its value.</span><span className="footerRight">GenLayer Studionet · <a href="https://explorer-studio.genlayer.com" target="_blank">Explorer <ExternalLink size={12}/></a></span></footer>
-    {walletOpen&&<div className="overlay" onClick={()=>setWalletOpen(false)}><div className="walletModal" onClick={e=>e.stopPropagation()}><button className="close" onClick={()=>setWalletOpen(false)}><X size={18}/></button><div className="sectionKicker">IDENTITY REQUIRED FOR WRITES</div><h2>Choose your wallet mode</h2><p className="modalIntro">BIBET reads publicly without a wallet. Choose how you’ll sign transactions when you’re ready to create or fund a round.</p><button className="walletOption" onClick={chooseInjected} disabled={!!connecting}><span className="optionIcon"><Wallet size={19}/></span><span><b>Injected wallet</b><small>{hasInjectedWallet()?'Connect MetaMask, Rabby or any EIP-1193 wallet':'No injected wallet detected in this browser'}</small></span>{connecting==='injected'?<Loader2 className="spin" size={17}/>:<ChevronRight size={17}/>}</button><button className="walletOption" onClick={chooseGenerated} disabled={!!connecting}><span className="optionIcon browser"><Layers3 size={19}/></span><span><b>Browser wallet</b><small>Generate and persist a local signing identity</small></span>{connecting==='generated'?<Loader2 className="spin" size={17}/>:<ChevronRight size={17}/>}</button>{address&&<div className="walletState"><Check size={15}/><span>{mode==='injected'?'Injected wallet connected':'Browser wallet ready'}: <b>{shortAddress(address)}</b></span><button onClick={()=>navigator.clipboard?.writeText(address)}><Copy size={14}/></button></div>}{walletError&&<div className="walletError">{walletError}</div>}<div className="warning"><ShieldCheck size={15}/><span>Browser wallets are stored in this browser only. Export your key before clearing site data. This is not custody-grade.</span></div></div></div>}
-  </main>
+  return (
+    <AppShell>
+      <section className="hero">
+        <div className="heroCopy">
+          <div className="eyebrow"><span />RETROACTIVE PUBLIC GOODS FUNDING</div>
+          <h1>Fund what<br /><em>proved</em> its value.</h1>
+          <p className="lead">
+            BIBET turns completed public-good work into accountable funding. Evidence is reviewed by GenLayer validators.
+            Allocation follows a transparent deterministic formula after review.
+          </p>
+          <div className="heroCtas">
+            <Link className="primary" href="/rounds">Explore rounds <ArrowUpRight size={16} /></Link>
+            <Link className="textLink" href="/start">Start a round <ChevronRight size={15} /></Link>
+          </div>
+        </div>
+        <div className="strata">
+          <div className="strataLabel">IMPACT STRATA <span>HISTORICAL WINDOW / LOCKED PER ROUND</span></div>
+          <div className="layers">
+            <div className="layer l1"><b>03</b><span>COMMUNITY REACH</span></div>
+            <div className="layer l2"><b>02</b><span>PROVEN DEPTH</span></div>
+            <div className="layer l3"><b>01</b><span>ATTRIBUTABLE WORK</span></div>
+            <div className="layer l4"><b>00</b><span>EVIDENCE CORE</span></div>
+          </div>
+          <div className="strataFoot"><span>0.00</span><span>IMPACT BANDS</span><span>1.00</span></div>
+        </div>
+      </section>
+      <section className="homeSplit">
+        <div>
+          <div className="sectionKicker">BUILT ON GENLAYER STUDIONET</div>
+          <h2>Separate app screens.<br />No demo ledger noise.</h2>
+        </div>
+        <p>
+          The live app keeps the homepage focused and sends round browsing, creation, process notes, and audit details to
+          their own pages.
+        </p>
+      </section>
+    </AppShell>
+  );
 }
