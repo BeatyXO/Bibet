@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ArrowUpRight, ExternalLink, Plus } from "lucide-react";
 import { createAccount, createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
-import { BIBET_CONTRACT } from "../lib/config";
+import { BIBET_CONTRACT, explorerTx, readClient } from "../lib/config";
 import { getGeneratedKey } from "../lib/wallet";
 import { useWallet } from "./wallet-provider";
 
@@ -15,11 +15,13 @@ export function StartRoundForm() {
   const [roundBudget, setRoundBudget] = useState("");
   const [txState, setTxState] = useState<string | null>(null);
   const [roundTx, setRoundTx] = useState<string | null>(null);
+  const [roundId, setRoundId] = useState<string | null>(null);
   const busy = txState?.startsWith("Preparing") || txState?.startsWith("Waiting") || txState?.startsWith("Transaction submitted");
 
   async function startRound() {
     setTxState(null);
     setRoundTx(null);
+    setRoundId(null);
     try {
       if (!address || mode === "none") {
         openWallet();
@@ -47,6 +49,8 @@ export function StartRoundForm() {
         setRoundTx(hash);
         setTxState("Waiting for GenLayer consensus...");
         const receipt = await client.waitForTransactionReceipt({ hash, interval: 5000, retries: 90 });
+        const count = await readClient.readContract({ address: BIBET_CONTRACT, functionName: "get_round_count", args: [] });
+        setRoundId(String(count));
         setTxState(`Round created. Status ${receipt.statusName ?? receipt.status}, result ${receipt.resultName ?? receipt.result}.`);
         return;
       }
@@ -56,6 +60,8 @@ export function StartRoundForm() {
       setRoundTx(hash);
       setTxState("Transaction submitted from injected wallet. Waiting for GenLayer consensus...");
       const receipt = await client.waitForTransactionReceipt({ hash, interval: 5000, retries: 90 });
+      const count = await readClient.readContract({ address: BIBET_CONTRACT, functionName: "get_round_count", args: [] });
+      setRoundId(String(count));
       setTxState(`Round created. Status ${receipt.statusName ?? receipt.status}, result ${receipt.resultName ?? receipt.result}.`);
     } catch (error) {
       setTxState(error instanceof Error ? error.message : "Could not start the round.");
@@ -69,7 +75,7 @@ export function StartRoundForm() {
       <label>Planned budget note<input value={roundBudget} onChange={(event) => setRoundBudget(event.target.value)} placeholder="Example: 50000 GEN" /></label>
       <button className="primary formSubmit" onClick={startRound} disabled={!!busy}><Plus size={16} />Start new round</button>
       {!address && <button className="secondaryAction" onClick={openWallet}>Connect wallet first <ArrowUpRight size={14} /></button>}
-      {txState && <div className="txState">{txState}{roundTx && <a href={`https://explorer-studio.genlayer.com/transactions/${roundTx}`} target="_blank">View transaction <ExternalLink size={12} /></a>}</div>}
+      {txState && <div className="txState">{txState}{roundTx && <a href={explorerTx(roundTx)} target="_blank">View transaction <ExternalLink size={12} /></a>}{roundId && <a href={`/rounds/${roundId}`}>Open round {roundId} <ArrowUpRight size={12} /></a>}</div>}
     </div>
   );
 }

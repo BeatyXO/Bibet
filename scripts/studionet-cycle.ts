@@ -49,6 +49,15 @@ async function read(functionName: string, args: CalldataValue[] = []) {
   return typeof raw === "string" ? JSON.parse(raw || "{}") : raw;
 }
 
+async function readCount() {
+  const raw = await client.readContract({
+    address: BIBET_CONTRACT,
+    functionName: "get_round_count",
+    args: [],
+  });
+  return Number(raw || 0);
+}
+
 const roundConfig = {
   title: "BIBET live public-goods evidence round",
   round_type: "retroactive_public_goods",
@@ -82,18 +91,22 @@ async function main() {
   console.log(`Contributor: ${contributor.address}`);
   console.log(`Challenger: ${challenger.address}`);
 
+  const before = await readCount();
   await write("deterministic create_round", creator, "create_round", [JSON.stringify(roundConfig)]);
-  const round = await read("get_round", ["1"]);
+  const roundId = String(await readCount());
+  if (Number(roundId) !== before + 1) throw new Error(`Expected new round counter ${before + 1}, got ${roundId}`);
+  const round = await read("get_round", [roundId]);
   if (round.status !== "DRAFT") throw new Error(`Expected DRAFT, got ${round.status}`);
+  if (round.creator !== creator.address.toLowerCase()) throw new Error(`Expected creator ${creator.address}, got ${round.creator}`);
 
-  await write("payable fund_round", creator, "fund_round", ["1"], oneGen / 1000n);
-  await write("deterministic lock_round", creator, "lock_round", ["1"]);
-  await write("deterministic submit_trace_claim", contributor, "submit_trace_claim", ["1", JSON.stringify(claim)]);
-  await write("deterministic update_claim_before_close", contributor, "update_claim_before_close", ["1", "1", JSON.stringify(claimUpdate)]);
-  await write("deterministic close_applications", creator, "close_applications", ["1"]);
+  await write("payable fund_round", creator, "fund_round", [roundId], oneGen / 1000n);
+  await write("deterministic lock_round", creator, "lock_round", [roundId]);
+  await write("deterministic submit_trace_claim", contributor, "submit_trace_claim", [roundId, JSON.stringify(claim)]);
+  await write("deterministic update_claim_before_close", contributor, "update_claim_before_close", [roundId, "1", JSON.stringify({ ...claim, ...claimUpdate })]);
+  await write("deterministic close_applications", creator, "close_applications", [roundId]);
 
-  await write("nondeterministic request_impact_review", creator, "request_impact_review", ["1", "1"]);
-  const verdict = await read("get_verdict", ["1", "1"]);
+  await write("nondeterministic request_impact_review", creator, "request_impact_review", [roundId, "1"]);
+  const verdict = await read("get_verdict", [roundId, "1"]);
   if (!verdict.normalized_impact_score && verdict.normalized_impact_score !== 0) {
     throw new Error("Verdict missing normalized_impact_score");
   }
@@ -102,39 +115,46 @@ async function main() {
     "deterministic open_challenge",
     challenger,
     "open_challenge",
-    ["1", "1", "evidence_quality", "Challenge whether a single source is sufficient for durable public-good impact."],
+    [roundId, "1", "evidence_quality", "Challenge whether a single source is sufficient for durable public-good impact."],
   );
   await write(
     "deterministic respond_to_challenge",
     contributor,
     "respond_to_challenge",
-    ["1", "1", "The trace describes a completed open reference index; the evidence URL is intentionally simple for Studionet smoke testing."],
+    [roundId, "1", "The trace describes a completed open reference index; the evidence URL is intentionally simple for Studionet smoke testing."],
   );
-  await write("deterministic resolve_challenge", creator, "resolve_challenge", ["1", "1", false, "Rejected for live smoke test; evidence remains reviewable."]);
-  await write("deterministic finalize_round", creator, "finalize_round", ["1"]);
+  await write("deterministic resolve_challenge", creator, "resolve_challenge", [roundId, "1", false, "Rejected for live smoke test; evidence remains reviewable."]);
+  await write("deterministic finalize_round", creator, "finalize_round", [roundId]);
 
-  const afterledger = await read("get_afterledger", ["1"]);
+  const afterledger = await read("get_afterledger", [roundId]);
   if (afterledger.round.status !== "FINALIZED") {
     throw new Error(`Expected FINALIZED, got ${afterledger.round.status}`);
   }
 
-  const allocation = await read("get_allocation", ["1", "1"]);
+  const allocation = await read("get_allocation", [roundId, "1"]);
   if (allocation.status === "PENDING") {
-    await write("settlement claim_allocation", contributor, "claim_allocation", ["1", "1"]);
+    await write("settlement claim_allocation", contributor, "claim_allocation", [roundId, "1"]);
   } else {
     console.log(`settlement claim_allocation skipped: allocation status=${allocation.status ?? "none"}`);
   }
+  const totals = await read("get_round_totals", [roundId]);
+  if (Number(totals.refundable_amount) > 0) {
+    await write("settlement withdraw_unallocated_budget", creator, "withdraw_unallocated_budget", [roundId]);
+  }
 
+  const beforeCancel = await readCount();
   await write(
     "deterministic create_cancel_round",
     creator,
     "create_round",
     [JSON.stringify({ ...roundConfig, title: "BIBET cancellation smoke round" })],
   );
-  await write("deterministic cancel_unopened_round", creator, "cancel_unopened_round", ["2"]);
+  const cancelRoundId = String(await readCount());
+  if (Number(cancelRoundId) !== beforeCancel + 1) throw new Error(`Expected cancel round counter ${beforeCancel + 1}, got ${cancelRoundId}`);
+  await write("deterministic cancel_unopened_round", creator, "cancel_unopened_round", [cancelRoundId]);
 
   console.log("Afterledger:");
-  console.log(JSON.stringify(await read("get_afterledger", ["1"]), null, 2));
+  console.log(JSON.stringify(await read("get_afterledger", [roundId]), null, 2));
   console.log("Transactions:");
   console.log(JSON.stringify(txs, null, 2));
 }

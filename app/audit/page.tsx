@@ -1,6 +1,6 @@
 import { CircleHelp, ExternalLink, ShieldCheck } from "lucide-react";
 import { AppShell } from "../../components/app-shell";
-import { BIBET_CONTRACT } from "../../lib/config";
+import { BIBET_CONTRACT, explorerContract } from "../../lib/config";
 
 export default function AuditPage() {
   return (
@@ -23,7 +23,7 @@ export default function AuditPage() {
             <CircleHelp size={16} />
             <span>Weak or conflicting evidence can resolve as <b>INSUFFICIENT EVIDENCE</b>. BIBET should never force certainty where the proof is thin.</span>
           </div>
-          <a className="textLink" href={`https://explorer-studio.genlayer.com/contracts/${BIBET_CONTRACT}`} target="_blank">
+          <a className="textLink" href={explorerContract(BIBET_CONTRACT)} target="_blank">
             Open BIBET contract <ExternalLink size={15} />
           </a>
         </div>
