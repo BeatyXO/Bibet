@@ -64,7 +64,7 @@ const roundConfig = {
   historical_window: "2024-01-01/2026-08-01",
   rubric: ["reach", "depth", "durability", "additionality", "public_good_fit"],
   policy_version: "bibet-studionet-v1",
-  max_share_bps: 10_000,
+  max_share_bps: 2500,
 };
 
 const claim = {
@@ -115,7 +115,7 @@ async function main() {
     "deterministic open_challenge",
     challenger,
     "open_challenge",
-    [roundId, "1", "evidence_quality", "Challenge whether a single source is sufficient for durable public-good impact."],
+    [roundId, "1", "evidence_quality", "Challenge whether a single source is sufficient for durable public-good impact.", JSON.stringify({ evidence_urls: ["https://example.com/"] })],
   );
   await write(
     "deterministic respond_to_challenge",
@@ -123,7 +123,7 @@ async function main() {
     "respond_to_challenge",
     [roundId, "1", "The trace describes a completed open reference index; the evidence URL is intentionally simple for Studionet smoke testing."],
   );
-  await write("deterministic resolve_challenge", creator, "resolve_challenge", [roundId, "1", false, "Rejected for live smoke test; evidence remains reviewable."]);
+  await write("nondeterministic adjudicate_challenge", challenger, "adjudicate_challenge", [roundId, "1"]);
   await write("deterministic finalize_round", creator, "finalize_round", [roundId]);
 
   const afterledger = await read("get_afterledger", [roundId]);

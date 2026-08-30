@@ -29,11 +29,9 @@ export function RoundsLedger() {
   const loadRounds = useCallback(async () => {
     setState("Loading live rounds...");
     try {
-      const countRaw = await readClient.readContract({ address: BIBET_CONTRACT, functionName: "get_round_count", args: [] });
-      const count = Number(countRaw || 0);
-      const loaded: RoundSummary[] = [];
-      for (let id = 1; id <= count; id += 1) loaded.push(await readJson("get_round_summary", [String(id)]));
-      setRounds(loaded.reverse());
+      const page = await readJson("list_rounds", ["1", "25"]);
+      const loaded: RoundSummary[] = [...(page.rounds || [])].reverse();
+      setRounds(loaded);
       setState(loaded.length ? "" : "No indexed public rounds loaded yet.");
     } catch (error) {
       setRounds([]);

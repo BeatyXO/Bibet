@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Check, ChevronRight, Copy, Layers3, Loader2, ShieldCheck, Wallet, X } from "lucide-react";
 import {
   connectInjectedWallet,
@@ -10,6 +10,7 @@ import {
   hasInjectedWallet,
   shortAddress,
 } from "../lib/wallet";
+import { BIBET_CHAIN } from "../lib/config";
 
 type ActiveWalletMode = "none" | "injected" | "generated";
 type WalletContextValue = { address: string | null; mode: ActiveWalletMode; openWallet: () => void };
@@ -32,7 +33,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setWalletError(null);
     setConnecting("injected");
     try {
-      const account = await connectInjectedWallet();
+      const account = await connectInjectedWallet(BIBET_CHAIN);
       setAddress(account);
       setMode("injected");
       setWalletOpen(false);
@@ -61,6 +62,25 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   }
 
   const value = useMemo(() => ({ address, mode, openWallet: () => setWalletOpen(true) }), [address, mode]);
+
+  useEffect(() => {
+    const provider = window.ethereum;
+    if (!provider?.on) return;
+    const onAccounts = (value: unknown) => {
+      const accounts = Array.isArray(value) ? value : [];
+      setAddress(typeof accounts[0] === "string" ? accounts[0] : null);
+      if (!accounts[0]) setMode("none");
+    };
+    const onChain = () => {
+      if (mode === "injected") setWalletError("Wallet network changed. Reconnect if a transaction fails.");
+    };
+    provider.on("accountsChanged", onAccounts);
+    provider.on("chainChanged", onChain);
+    return () => {
+      provider.removeListener?.("accountsChanged", onAccounts);
+      provider.removeListener?.("chainChanged", onChain);
+    };
+  }, [mode]);
 
   return (
     <WalletContext.Provider value={value}>

@@ -1,5 +1,5 @@
 import { createAccount, createClient } from "genlayer-js";
-import { studionet } from "genlayer-js/chains";
+import { studionet, testnetBradbury } from "genlayer-js/chains";
 
 const DEFAULT_CONTRACT = "0x7DB196d1611D2A20C0eC0619c3f6dC7c1b2cc6D5";
 const DEFAULT_EXPLORER = "https://explorer-studio.genlayer.com";
@@ -13,7 +13,8 @@ function contractAddress() {
 }
 
 export const BIBET_NETWORK = process.env.NEXT_PUBLIC_GENLAYER_NETWORK || "studionet";
-export const BIBET_CHAIN = studionet;
+export const BIBET_CHAIN =
+  BIBET_NETWORK === "studionet" ? studionet : BIBET_NETWORK === "bradbury" ? testnetBradbury : failUnsupportedNetwork();
 export const BIBET_CONTRACT = contractAddress();
 export const BIBET_EXPLORER_URL = (process.env.NEXT_PUBLIC_GENLAYER_EXPLORER_URL || DEFAULT_EXPLORER).replace(/\/+$/, "");
 export const readClient = createClient({ chain: BIBET_CHAIN, account: createAccount() });
@@ -24,4 +25,8 @@ export function explorerTx(hash: string) {
 
 export function explorerContract(address = BIBET_CONTRACT) {
   return `${BIBET_EXPLORER_URL}/contracts/${address}`;
+}
+
+function failUnsupportedNetwork(): never {
+  throw new Error(`Unsupported NEXT_PUBLIC_GENLAYER_NETWORK: ${BIBET_NETWORK}. Use studionet or bradbury.`);
 }
