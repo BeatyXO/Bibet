@@ -48,7 +48,7 @@ async function write(label: string, account: ReturnType<typeof createAccount>, f
     functionName,
     args,
     value,
-    consensusMaxRotations: 3,
+    consensusMaxRotations: 8,
   });
   const receipt = await client.waitForTransactionReceipt({
     hash,
@@ -116,11 +116,31 @@ async function main() {
       contributor_name: "BIBET integration contributor",
       impact_statement:
         "The BIBET repository contains a deployed GenLayer retroactive public-goods funding protocol with contract lifecycle controls, wallet-enabled frontend operations, Direct Mode tests, CI, and public evidence documentation.",
-      evidence_urls: [
-        "https://raw.githubusercontent.com/BeatyXO/Bibet/main/docs/bibet-positive-evidence.md",
-        "https://raw.githubusercontent.com/BeatyXO/Bibet/main/contracts/bibet.py",
-        "https://raw.githubusercontent.com/BeatyXO/Bibet/main/tests/direct/test_bibet_direct.py",
-        "https://raw.githubusercontent.com/BeatyXO/Bibet/main/.github/workflows/ci.yml",
+      evidence_manifest: [
+        {
+          url: "https://raw.githubusercontent.com/BeatyXO/Bibet/1c5ca5628ff3fd463615a06404a1f0a8c261f411/docs/bibet-positive-evidence.md",
+          sha256: "a4dfa74608d17881a370be3db8bbaf7e9812f426e4f4d76b1990ac6db8d14a08",
+          content_type: "text/markdown",
+          version: "commit-1c5ca5628ff3fd463615a06404a1f0a8c261f411",
+        },
+        {
+          url: "https://raw.githubusercontent.com/BeatyXO/Bibet/1c5ca5628ff3fd463615a06404a1f0a8c261f411/contracts/bibet.py",
+          sha256: "b51f498de1694a675301761a58a79292e900d478c8995d7f9c644c68d821bafb",
+          content_type: "text/x-python",
+          version: "commit-1c5ca5628ff3fd463615a06404a1f0a8c261f411",
+        },
+        {
+          url: "https://raw.githubusercontent.com/BeatyXO/Bibet/1c5ca5628ff3fd463615a06404a1f0a8c261f411/tests/direct/test_bibet_direct.py",
+          sha256: "1584d755201bbe523e0b7e2ea04cbf866eace5de37d715edb43a6c5bef8967c9",
+          content_type: "text/x-python",
+          version: "commit-1c5ca5628ff3fd463615a06404a1f0a8c261f411",
+        },
+        {
+          url: "https://raw.githubusercontent.com/BeatyXO/Bibet/1c5ca5628ff3fd463615a06404a1f0a8c261f411/.github/workflows/ci.yml",
+          sha256: "920467385e5d8e904d78c588906fa0d3f5cdf923a52311e7ebf8b6c05f32c806",
+          content_type: "text/yaml",
+          version: "commit-1c5ca5628ff3fd463615a06404a1f0a8c261f411",
+        },
       ],
       trace_urls: [
         "https://github.com/BeatyXO/Bibet",

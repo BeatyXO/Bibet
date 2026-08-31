@@ -148,6 +148,11 @@ def test_nondeterministic_disagreement_and_tolerance(direct_vm, bibet, accounts)
 
     direct_vm.clear_mocks()
     direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": "same evidence"})
+    direct_vm.mock_llm(r".*", verdict(82, evidence_quality="MODERATE", attribution="SHARED", confidence_band="MEDIUM"))
+    assert direct_vm.run_validator() is True
+
+    direct_vm.clear_mocks()
+    direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": "same evidence"})
     direct_vm.mock_llm(r".*", verdict(80, duplication_risk="HIGH"))
     assert direct_vm.run_validator() is False
 

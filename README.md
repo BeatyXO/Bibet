@@ -7,8 +7,8 @@ The product idea is unchanged: BIBET funds what already proved useful. GenLayer 
 ## Current canonical deployment
 
 - Network: GenLayer StudioNet
-- Contract: `0xb6b8b58A47416B3B9B402B31dddC0EDae76b7bD4`
-- Deployment transaction: `0x663f10cb224498f18c120ac6ba2ebcd2ec5c9599b78f14445357560fcf82c099`
+- Contract: `0xD90B770b3d149361C475bABB361aF0776e497A76`
+- Deployment transaction: `0x84d2d0e45b949fa54977451b50139ec199c0c49b237bc1f58f328fa666395279`
 - Explorer: `https://explorer-studio.genlayer.com`
 - Vercel app: `https://bibet-eight.vercel.app/`
 
@@ -89,7 +89,7 @@ Injected EIP-1193 wallets are the primary production path. The generated browser
 
 ```bash
 NEXT_PUBLIC_GENLAYER_NETWORK=studionet
-NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS=0xb6b8b58A47416B3B9B402B31dddC0EDae76b7bD4
+NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS=0xD90B770b3d149361C475bABB361aF0776e497A76
 NEXT_PUBLIC_GENLAYER_EXPLORER_URL=https://explorer-studio.genlayer.com
 ```
 
@@ -114,15 +114,15 @@ npm run verify:schema
 Latest results:
 
 - GenVM lint: basic lint passed locally; `genvm-lint check` is wired in CI but this Windows cache returned `Failed to load SDK` after lint passed
-- Schema verification: passed for `0xb6b8b58A47416B3B9B402B31dddC0EDae76b7bD4`
+- Schema verification: passed for `0xD90B770b3d149361C475bABB361aF0776e497A76`
 - TypeScript: passed
 - ESLint: passed
 - Next build: passed
 - Direct Mode pytest: 21 passed, 0 failed
 - Supplementary allocation vectors: 13 passed, 0 failed
 - Supplementary static checks: 62 passed, 0 failed
-- StudioNet insufficient-evidence/challenge integration: pending rerun on hardened deployment
-- StudioNet positive economic proof: pending rerun on hardened deployment
+- StudioNet insufficient-evidence/challenge integration: pending rerun on final hardened deployment
+- StudioNet positive economic proof: deterministic setup transactions accepted on final hardened deployment; semantic review attempts reached StudioNet but did not finalize with majority agreement before RPC instability/stall. See `scripts/studionet-positive-cycle.ts` for the digest-backed immutable proof inputs.
 
 ## Fresh StudioNet lifecycle proof
 

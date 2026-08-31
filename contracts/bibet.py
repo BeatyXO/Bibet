@@ -348,8 +348,21 @@ class BibetProtocol(gl.Contract):
     def _equivalent_verdict(self, a, b) -> bool:
         if a.get("eligibility") == "INSUFFICIENT_EVIDENCE" and b.get("eligibility") == "INSUFFICIENT_EVIDENCE":
             return int(a.get("normalized_impact_score", 0)) == 0 and int(b.get("normalized_impact_score", 0)) == 0
-        for key in ("eligibility", "evidence_quality", "attribution", "duplication_risk", "confidence_band"):
-            if a.get(key) != b.get(key):
+        if a.get("eligibility") != b.get("eligibility"):
+            return False
+        if a.get("duplication_risk") != b.get("duplication_risk"):
+            return False
+        compatible = {
+            "evidence_quality": (("MODERATE", "STRONG"),),
+            "attribution": (("CLEAR", "SHARED"),),
+            "confidence_band": (("MEDIUM", "HIGH"),),
+        }
+        for key, groups in compatible.items():
+            left = a.get(key)
+            right = b.get(key)
+            if left == right:
+                continue
+            if not any(left in group and right in group for group in groups):
                 return False
         for key in ("reach_band", "depth_band", "durability_band", "additionality_band", "public_good_band"):
             if abs(int(a.get(key, 0)) - int(b.get(key, 0))) > self.SCORE_TOLERANCE:
@@ -530,6 +543,8 @@ class BibetProtocol(gl.Contract):
                 "Enums: eligibility ELIGIBLE/INELIGIBLE/INSUFFICIENT_EVIDENCE; evidence_quality WEAK/MODERATE/STRONG/UNAVAILABLE/CONTRADICTORY; "
                 "attribution CLEAR/SHARED/UNCERTAIN/CONTRADICTED; duplication_risk LOW/MEDIUM/HIGH; confidence_band LOW/MEDIUM/HIGH. "
                 "Integer fields 0-100: reach_band, depth_band, durability_band, additionality_band, public_good_band. normalized_impact_score is derived by contract and any supplied value is ignored. "
+                "Use these deterministic anchors for each integer band: 0 unavailable/no proof; 25 weak/anecdotal; 50 plausible but limited; 70 solid public evidence; 85 strong public evidence; 100 exceptional independently verified impact. "
+                "Prefer anchor values exactly unless evidence clearly falls between anchors. "
                 "short_reason max 260 chars and is not consensus-critical. "
                 "Claim: " + json.dumps(claim, sort_keys=True) + " Evidence: " + json.dumps(evidence, sort_keys=True)
             )

@@ -51,7 +51,7 @@ async function write(label: string, account: ReturnType<typeof createAccount>, f
     functionName,
     args,
     value,
-    consensusMaxRotations: 3,
+    consensusMaxRotations: 8,
   });
   const receipt = await client.waitForTransactionReceipt({
     hash,
