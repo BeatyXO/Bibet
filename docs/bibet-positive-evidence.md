@@ -8,7 +8,7 @@ Repository: https://github.com/BeatyXO/Bibet
 
 Public app: https://bibet-eight.vercel.app/
 
-Completion date: 2026-08-30.
+Completion date: 2026-08-31.
 
 Public-good output:
 

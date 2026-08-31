@@ -77,7 +77,7 @@ async function main() {
     JSON.stringify({
       title: "BIBET positive evidence integration round",
       round_type: "retroactive_public_goods",
-      historical_window: "2026-08-01/2026-08-31",
+      historical_window: "2026-08-01/2026-09-30",
       rubric: ["reach", "depth", "durability", "additionality", "public_good_fit"],
       policy_version: "bibet-positive-studionet-v1",
       max_share_bps: 2500,
@@ -97,17 +97,19 @@ async function main() {
     JSON.stringify({
       artifact_id: "bibet-final-hardened-protocol-and-app",
       title: "BIBET hardened GenLayer funding protocol and frontend",
-      completion_date: "2026-08-30",
+      completion_date: "2026-08-31",
       contributor_name: "BIBET integration contributor",
       impact_statement:
         "The BIBET repository contains a deployed GenLayer retroactive public-goods funding protocol with contract lifecycle controls, wallet-enabled frontend operations, Direct Mode tests, CI, and public evidence documentation.",
       evidence_urls: [
         "https://raw.githubusercontent.com/BeatyXO/Bibet/main/docs/bibet-positive-evidence.md",
-      ],
-      trace_urls: [
         "https://raw.githubusercontent.com/BeatyXO/Bibet/main/contracts/bibet.py",
         "https://raw.githubusercontent.com/BeatyXO/Bibet/main/tests/direct/test_bibet_direct.py",
         "https://raw.githubusercontent.com/BeatyXO/Bibet/main/.github/workflows/ci.yml",
+      ],
+      trace_urls: [
+        "https://github.com/BeatyXO/Bibet",
+        "https://bibet-eight.vercel.app/",
       ],
       requested_tags: ["public-goods", "genlayer", "open-source", "retrofunding"],
     }),
