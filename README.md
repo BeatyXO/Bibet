@@ -124,13 +124,20 @@ Latest results:
 - StudioNet insufficient-evidence/challenge integration: pending rerun on final hardened deployment
 - StudioNet positive economic proof: deterministic setup transactions accepted on final hardened deployment; semantic review attempts reached StudioNet but did not finalize with majority agreement before RPC instability/stall. See `scripts/studionet-positive-cycle.ts` for the digest-backed immutable proof inputs.
 
-## StudioNet proof status
+## Historical StudioNet proof — earlier deployment only
 
-Historical pre-hardening transaction traces are intentionally not presented as proof for the current deployment. A fresh positive semantic-review trail must be recorded here only after it completes against the current contract.
+The eight transactions below belong to the earlier deployment `0x646641bc1eDB15c6774b1c00acd7439477cFA7DD`. They are historical/pre-hardening evidence and must not be attributed to the current deployment `0xD90B770b3d149361C475bABB361aF0776e497A76`.
 
-Positive verdict: `ELIGIBLE`, evidence quality `MODERATE`, duplication risk `LOW`, normalized impact score `71`.
+- Historical `create_round`: `0x2d569aef5e8b969618077de4edf2db81814746b77bdbeda328ee506a47636ca3`
+- Historical `fund_round`: `0xee696ec786c63dce081ef542488d043aed3eec7b0c24a3780705bbfd1d81165b`
+- Historical `lock_round`: `0x668c30f4f3fb368aad8f724d56a0cf917dc39065eaca1439a907bfda79155f90`
+- Historical `submit_trace_claim`: `0xec701f847ec45088a32dc5c0e80b44437dff0ecd0aa1425985e1e1c6af210341`
+- Historical `close_applications`: `0xa231cd577e2d0d7e1c63c92cc6b64d40fb6c446b8b4472c7be574a4d386cb59e`
+- Historical `request_impact_review`: `0x13f1e0c98a9c56a78eb010c1cb83dee77e304c2352cc382154a48107bae9feba`
+- Historical `finalize_round`: `0x40ffa9eb89de7f7a91a0d110f3adf746f7132344ea55569884b0d9534d4da67d`
+- Historical `claim_allocation`: `0x2006b94e48390dda8527a4cb5d3e77c4e315664abb9f5b912237d99716f32839`
 
-Positive allocation claimed: `250000000000000`. Remaining unallocated budget: `750000000000000`.
+No positive semantic-review or allocation proof is claimed here for the current `0xD90B...` deployment.
 
 An insufficient-evidence challenge/adjudication/withdrawal smoke cycle was also executed on the previous fresh hardened contract and passed 14 accepted transactions.
 
