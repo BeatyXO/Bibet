@@ -100,17 +100,14 @@ async function main() {
       completion_date: "2026-08-30",
       contributor_name: "BIBET integration contributor",
       impact_statement:
-        "The BIBET repository contains a deployed GenLayer contract, routed Next.js frontend, wallet mode support, CI checks, schema verification, deterministic allocation tests, and live StudioNet lifecycle scripts for retroactive public-goods funding.",
+        "The BIBET repository contains a deployed GenLayer retroactive public-goods funding protocol with contract lifecycle controls, wallet-enabled frontend operations, Direct Mode tests, CI, and public evidence documentation.",
       evidence_urls: [
         "https://raw.githubusercontent.com/BeatyXO/Bibet/main/docs/bibet-positive-evidence.md",
+      ],
+      trace_urls: [
         "https://raw.githubusercontent.com/BeatyXO/Bibet/main/contracts/bibet.py",
         "https://raw.githubusercontent.com/BeatyXO/Bibet/main/tests/direct/test_bibet_direct.py",
         "https://raw.githubusercontent.com/BeatyXO/Bibet/main/.github/workflows/ci.yml",
-        "https://raw.githubusercontent.com/BeatyXO/Bibet/main/package.json",
-      ],
-      trace_urls: [
-        "https://bibet-eight.vercel.app/",
-        "https://github.com/BeatyXO/Bibet/commits/main",
       ],
       requested_tags: ["public-goods", "genlayer", "open-source", "retrofunding"],
     }),
