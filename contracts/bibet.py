@@ -244,6 +244,17 @@ class BibetProtocol(gl.Contract):
     def _equivalent_verdict(self, a, b) -> bool:
         if a.get("eligibility") == "INSUFFICIENT_EVIDENCE" and b.get("eligibility") == "INSUFFICIENT_EVIDENCE":
             return int(a.get("normalized_impact_score", 0)) == 0 and int(b.get("normalized_impact_score", 0)) == 0
+        if a.get("eligibility") == "ELIGIBLE" and b.get("eligibility") == "ELIGIBLE":
+            if a.get("evidence_quality") not in ("MODERATE", "STRONG") or b.get("evidence_quality") not in ("MODERATE", "STRONG"):
+                return False
+            if a.get("attribution") == "CONTRADICTED" or b.get("attribution") == "CONTRADICTED":
+                return False
+            if a.get("duplication_risk") == "HIGH" or b.get("duplication_risk") == "HIGH":
+                return False
+            for key in ("reach_band", "depth_band", "durability_band", "additionality_band", "public_good_band", "normalized_impact_score"):
+                if abs(int(a.get(key, 0)) - int(b.get(key, 0))) > 20:
+                    return False
+            return True
         for key in ("eligibility", "evidence_quality", "attribution", "duplication_risk", "confidence_band"):
             if a.get(key) != b.get(key):
                 return False
