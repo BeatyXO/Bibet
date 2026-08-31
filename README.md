@@ -7,8 +7,8 @@ The product idea is unchanged: BIBET funds what already proved useful. GenLayer 
 ## Current canonical deployment
 
 - Network: GenLayer StudioNet
-- Contract: `0x646641bc1eDB15c6774b1c00acd7439477cFA7DD`
-- Deployment transaction: `0x30b5f913898c217a252b6eec14c7bf0d78d3406ef75b6b1f2d5c8fcc68d3dbf0`
+- Contract: `0xb6b8b58A47416B3B9B402B31dddC0EDae76b7bD4`
+- Deployment transaction: `0x663f10cb224498f18c120ac6ba2ebcd2ec5c9599b78f14445357560fcf82c099`
 - Explorer: `https://explorer-studio.genlayer.com`
 - Vercel app: `https://bibet-eight.vercel.app/`
 
@@ -89,7 +89,7 @@ Injected EIP-1193 wallets are the primary production path. The generated browser
 
 ```bash
 NEXT_PUBLIC_GENLAYER_NETWORK=studionet
-NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS=0x646641bc1eDB15c6774b1c00acd7439477cFA7DD
+NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS=0xb6b8b58A47416B3B9B402B31dddC0EDae76b7bD4
 NEXT_PUBLIC_GENLAYER_EXPLORER_URL=https://explorer-studio.genlayer.com
 ```
 
@@ -114,15 +114,15 @@ npm run verify:schema
 Latest results:
 
 - GenVM lint: basic lint passed locally; `genvm-lint check` is wired in CI but this Windows cache returned `Failed to load SDK` after lint passed
-- Schema verification: passed for `0x646641bc1eDB15c6774b1c00acd7439477cFA7DD`
+- Schema verification: passed for `0xb6b8b58A47416B3B9B402B31dddC0EDae76b7bD4`
 - TypeScript: passed
 - ESLint: passed
 - Next build: passed
-- Direct Mode pytest: 6 passed, 0 failed
+- Direct Mode pytest: 21 passed, 0 failed
 - Supplementary allocation vectors: 13 passed, 0 failed
-- Supplementary static checks: 51 passed, 0 failed
-- StudioNet insufficient-evidence integration: 14 transactions accepted
-- StudioNet positive economic proof: 8 transactions accepted, `ELIGIBLE`, score `71`, allocation claimed
+- Supplementary static checks: 62 passed, 0 failed
+- StudioNet insufficient-evidence/challenge integration: pending rerun on hardened deployment
+- StudioNet positive economic proof: pending rerun on hardened deployment
 
 ## Fresh StudioNet lifecycle proof
 

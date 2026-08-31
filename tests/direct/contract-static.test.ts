@@ -10,9 +10,13 @@ const required = [
   "def permissionless_advance",
   "def adjudicate_challenge",
   "def withdraw_unallocated_budget",
+  "def expire_unreviewed_claim",
   "def _canonical_config",
   "def _canonical_claim",
   "def _canonical_verdict",
+  "def _derived_score",
+  "def _evidence_items",
+  "def _fetch_evidence",
   "def _valid_http_url",
   "def _round_totals_dict",
   "MAX_CLAIMS = 80",
@@ -23,6 +27,9 @@ const required = [
   "EXPECTED_REVIEW_IN_PROGRESS",
   "EXPECTED_APPLICATION_DEADLINE",
   "EXPECTED_FINALIZATION_DEADLINE",
+  "EXPECTED_REVIEW_DEADLINE",
+  "EXPECTED_BAD_DEADLINE_ORDER",
+  "EXPECTED_BAD_COMPLETION_DATE",
   "EXPECTED_PUBLIC_EVIDENCE_URL",
   "EXPECTED_UNSUPPORTED_CLAIM_FIELD",
   "EXPECTED_IMMUTABLE_ARTIFACT",
@@ -38,6 +45,8 @@ const required = [
   "EXPECTED_CONTRIBUTOR_ONLY",
   "EXPECTED_HTTP_EVIDENCE_URL",
   "EXPECTED_DUPLICATE_EVIDENCE_URL",
+  "DIGEST_MISMATCH",
+  "expected_sha256",
   "INSUFFICIENT_EVIDENCE rather than guessing",
   "status\": \"UNAVAILABLE\"",
   "CONTRADICTORY",
@@ -47,6 +56,8 @@ const required = [
   "unallocated_withdrawn",
   "verdict_history",
   "challenger_evidence_urls",
+  "challenged_verdict",
+  "verdict_version",
   "appeal_result",
   "refundable_amount",
   "funded_budget",
@@ -58,5 +69,6 @@ for (const item of required) assert(source.includes(item), `Missing contract har
 assert(!source.includes("rows[best][\"amount\"]"), "Old unsafe remainder distribution pattern should not exist");
 assert(source.includes("_equivalent_verdict(leader_verdict, other_verdict)"), "Consensus equivalence must compare validator verdicts");
 assert(!source.includes("def resolve_challenge"), "Creator-controlled semantic challenge resolution must not exist");
+assert(!source.includes("completed open-source GenLayer project"), "Reviewer prompt must not hardcode a project-specific eligibility shortcut");
 
 console.log(`${required.length + 3} direct contract static tests passed`);

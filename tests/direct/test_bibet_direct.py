@@ -1,4 +1,6 @@
 import json
+import hashlib
+import sys
 
 
 ONE_GEN = 10**18
@@ -13,9 +15,9 @@ def cfg(**overrides):
         "policy_version": "bibet-direct-v1",
         "max_share_bps": 2500,
         "application_close_after": "2026-08-30T10:00:00Z",
-        "review_deadline_at": "2026-08-30T11:00:00Z",
-        "challenge_deadline_at": "2026-08-30T11:30:00Z",
-        "finalization_deadline_at": "2026-08-30T12:00:00Z",
+        "review_deadline_at": "2026-08-30T13:00:00Z",
+        "challenge_deadline_at": "2026-08-30T13:30:00Z",
+        "finalization_deadline_at": "2026-08-30T14:00:00Z",
     }
     base.update(overrides)
     return json.dumps(base)
@@ -95,6 +97,18 @@ def open_review_round(vm, contract, accounts, *, claim_json=None, cfg_json=None)
     return "1"
 
 
+def warp(vm, timestamp):
+    vm.warp(timestamp)
+    gl_module = sys.modules.get("genlayer.gl")
+    if gl_module and getattr(gl_module, "message_raw", None):
+        gl_module.message_raw["datetime"] = timestamp
+
+
+def finalize_after_challenge_deadline(vm, contract, round_id="1"):
+    warp(vm, "2026-08-30T13:30:01Z")
+    contract.finalize_round(round_id)
+
+
 def test_full_positive_lifecycle_settlement_invariants(direct_vm, bibet, accounts):
     round_id = open_review_round(direct_vm, bibet, accounts)
     direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": "immutable evidence: usage, authorship, public benefit"})
@@ -102,7 +116,7 @@ def test_full_positive_lifecycle_settlement_invariants(direct_vm, bibet, account
 
     bibet.request_impact_review(round_id, "1")
     assert direct_vm.run_validator() is True
-    bibet.finalize_round(round_id)
+    finalize_after_challenge_deadline(direct_vm, bibet, round_id)
 
     allocation = read_json(bibet.get_allocation(round_id, "1"))
     totals = read_json(bibet.get_round_totals(round_id))
@@ -197,8 +211,8 @@ def test_permissionless_advance_respects_deadlines(direct_vm, bibet, accounts):
     bibet.create_round(
         cfg(
             application_close_after="2026-08-30T10:00:00Z",
-            review_deadline_at="2026-08-30T11:00:00Z",
-            challenge_deadline_at="2026-08-30T11:30:00Z",
+            review_deadline_at="2026-08-30T13:00:00Z",
+            challenge_deadline_at="2026-08-30T13:30:00Z",
             finalization_deadline_at="2026-08-30T15:00:00Z",
         )
     )
@@ -225,8 +239,250 @@ def test_insufficient_evidence_zeroes_allocation(direct_vm, bibet, accounts):
     direct_vm.mock_web(r"evidence\.example", {"status": 500, "body": ""})
     direct_vm.mock_llm(r".*", weak_verdict())
     bibet.request_impact_review(round_id, "1")
-    direct_vm.warp("2026-08-30T11:30:01Z")
+    warp(direct_vm, "2026-08-30T13:30:01Z")
     bibet.finalize_round(round_id)
     allocation = read_json(bibet.get_allocation(round_id, "1"))
     assert allocation["status"] == "ZEROED"
     assert allocation["amount"] == "0"
+
+
+def test_challenge_after_deadline_fails(direct_vm, bibet, accounts):
+    round_id = open_review_round(direct_vm, bibet, accounts, cfg_json=cfg(review_deadline_at="", challenge_deadline_at="2026-08-30T11:00:00Z"))
+    direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": "good evidence"})
+    direct_vm.mock_llm(r".*", verdict(70))
+    bibet.request_impact_review(round_id, "1")
+    direct_vm.sender = accounts[2]
+    must_revert("EXPECTED_CHALLENGE_DEADLINE", bibet.open_challenge, round_id, "1", "evidence_quality", "Late challenge cannot grief finalization.", json.dumps({"evidence_urls": ["https://challenge.example/a"]}))
+
+
+def test_challenge_bound_to_original_verdict_snapshot(direct_vm, bibet, accounts):
+    round_id = open_review_round(direct_vm, bibet, accounts, cfg_json=cfg(challenge_deadline_at="2026-08-30T13:00:00Z"))
+    direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": "good evidence"})
+    direct_vm.mock_llm(r".*", verdict(70))
+    bibet.request_impact_review(round_id, "1")
+    direct_vm.sender = accounts[2]
+    c1 = bibet.open_challenge(round_id, "1", "evidence_quality", "First challenge against version one.", json.dumps({"evidence_urls": ["https://challenge.example/a"]}))
+    c2 = bibet.open_challenge(round_id, "1", "attribution", "Second challenge against the same version.", json.dumps({"evidence_urls": ["https://challenge.example/b"]}))
+    ledger = read_json(bibet.get_afterledger(round_id))
+    assert ledger["challenges"][0]["challenged_verdict"]["version"] == 1
+    assert ledger["challenges"][1]["challenged_verdict"]["version"] == 1
+    direct_vm.clear_mocks()
+    direct_vm.mock_web(r".*\.example", {"status": 200, "body": "challenge evidence"})
+    direct_vm.mock_llm(r".*", verdict(72))
+    bibet.adjudicate_challenge(round_id, c2)
+    bibet.adjudicate_challenge(round_id, c1)
+    ledger = read_json(bibet.get_afterledger(round_id))
+    assert [item["status"] for item in ledger["challenges"]] == ["ADJUDICATED", "ADJUDICATED"]
+
+
+def test_review_after_deadline_fails_and_expiry_unblocks_finalization(direct_vm, bibet, accounts):
+    round_id = open_review_round(direct_vm, bibet, accounts, cfg_json=cfg(review_deadline_at="2026-08-30T11:00:00Z"))
+    must_revert("EXPECTED_REVIEW_DEADLINE", bibet.request_impact_review, round_id, "1")
+    bibet.expire_unreviewed_claim(round_id, "1")
+    ledger = read_json(bibet.get_afterledger(round_id))
+    assert ledger["claims"][0]["review_state"] == "EXPIRED"
+    assert ledger["verdicts"]["1"]["expired"] is True
+    warp(direct_vm, "2026-08-30T13:30:01Z")
+    bibet.finalize_round(round_id)
+
+
+def test_permissionless_expiry_with_reviewed_and_unreviewed_mix(direct_vm, bibet, accounts):
+    direct_vm.sender = accounts[0]
+    bibet.create_round(cfg(review_deadline_at="2026-08-30T11:00:00Z"))
+    direct_vm.value = ONE_GEN
+    bibet.fund_round("1")
+    direct_vm.value = 0
+    bibet.lock_round("1")
+    direct_vm.sender = accounts[1]
+    bibet.submit_trace_claim("1", claim(artifact_id="artifact-alpha"))
+    direct_vm.sender = accounts[2]
+    bibet.submit_trace_claim("1", claim(artifact_id="artifact-beta"))
+    direct_vm.sender = accounts[0]
+    bibet.close_applications("1")
+    direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": "good evidence"})
+    direct_vm.mock_llm(r".*", verdict(80))
+    # This deadline is already passed, so only permissionless deterministic cleanup is allowed.
+    must_revert("EXPECTED_REVIEW_DEADLINE", bibet.request_impact_review, "1", "1")
+    must_revert("EXPECTED_FINALIZATION_DEADLINE", bibet.permissionless_advance, "1")
+    ledger = read_json(bibet.get_afterledger("1"))
+    assert sorted(item["review_state"] for item in ledger["claims"]) == ["EXPIRED", "EXPIRED"]
+
+
+def test_evidence_digest_match_and_mismatch(direct_vm, bibet, accounts):
+    body = b"stable public evidence"
+    digest = hashlib.sha256(body).hexdigest()
+    manifest = [{"url": "https://evidence.example/alpha.txt", "sha256": digest, "content_type": "text/plain", "version": "v1"}]
+    round_id = open_review_round(direct_vm, bibet, accounts, claim_json=claim(evidence_manifest=manifest))
+    direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": body})
+    direct_vm.mock_llm(r".*", verdict(80))
+    bibet.request_impact_review(round_id, "1")
+    assert read_json(bibet.get_verdict(round_id, "1"))["eligibility"] == "ELIGIBLE"
+
+    direct_vm.sender = accounts[0]
+    bibet.create_round(cfg(title="Digest mismatch round"))
+    direct_vm.value = ONE_GEN
+    bibet.fund_round("2")
+    direct_vm.value = 0
+    bibet.lock_round("2")
+    direct_vm.sender = accounts[1]
+    bibet.submit_trace_claim("2", claim(artifact_id="artifact-beta", evidence_manifest=manifest))
+    direct_vm.sender = accounts[0]
+    bibet.close_applications("2")
+    direct_vm.clear_mocks()
+    direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": b"changed evidence"})
+    direct_vm.mock_llm(r".*", weak_verdict())
+    bibet.request_impact_review("2", "1")
+    assert read_json(bibet.get_verdict("2", "1"))["normalized_impact_score"] == 0
+
+
+def test_private_and_duplicate_evidence_rejected(direct_vm, bibet, accounts):
+    direct_vm.sender = accounts[0]
+    bibet.create_round(cfg())
+    direct_vm.value = ONE_GEN
+    bibet.fund_round("1")
+    direct_vm.value = 0
+    bibet.lock_round("1")
+    direct_vm.sender = accounts[1]
+    must_revert("EXPECTED_PUBLIC_EVIDENCE_URL", bibet.submit_trace_claim, "1", claim(evidence_urls=["http://127.0.0.1/x"]))
+    must_revert("EXPECTED_DUPLICATE_EVIDENCE_URL", bibet.submit_trace_claim, "1", claim(evidence_urls=["https://evidence.example/a", "https://evidence.example/a"]))
+
+
+def test_settlement_double_claim_and_wrong_sender_rejected(direct_vm, bibet, accounts):
+    round_id = open_review_round(direct_vm, bibet, accounts)
+    direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": "good evidence"})
+    direct_vm.mock_llm(r".*", verdict(80))
+    bibet.request_impact_review(round_id, "1")
+    finalize_after_challenge_deadline(direct_vm, bibet, round_id)
+    direct_vm.sender = accounts[2]
+    must_revert("EXPECTED_CONTRIBUTOR_ONLY", bibet.claim_allocation, round_id, "1")
+    direct_vm.sender = accounts[1]
+    bibet.claim_allocation(round_id, "1")
+    must_revert("EXPECTED_UNCLAIMED_ALLOCATION", bibet.claim_allocation, round_id, "1")
+
+
+def test_cancelled_and_open_round_cannot_be_reopened_or_cancelled(direct_vm, bibet, accounts):
+    direct_vm.sender = accounts[0]
+    bibet.create_round(cfg())
+    direct_vm.value = ONE_GEN
+    bibet.fund_round("1")
+    direct_vm.value = 0
+    bibet.cancel_unopened_round("1")
+    must_revert("EXPECTED_LOCKABLE_ROUND", bibet.lock_round, "1")
+    bibet.create_round(cfg(title="Cannot cancel after open"))
+    direct_vm.value = ONE_GEN
+    bibet.fund_round("2")
+    direct_vm.value = 0
+    bibet.lock_round("2")
+    must_revert("EXPECTED_CANCELABLE_ROUND", bibet.cancel_unopened_round, "2")
+
+
+def test_repeated_unallocated_withdrawal_rejected(direct_vm, bibet, accounts):
+    round_id = open_review_round(direct_vm, bibet, accounts)
+    direct_vm.mock_web(r"evidence\.example", {"status": 500, "body": ""})
+    direct_vm.mock_llm(r".*", weak_verdict())
+    bibet.request_impact_review(round_id, "1")
+    finalize_after_challenge_deadline(direct_vm, bibet, round_id)
+    bibet.withdraw_unallocated_budget(round_id)
+    must_revert("EXPECTED_NO_UNALLOCATED_BUDGET", bibet.withdraw_unallocated_budget, round_id)
+
+
+def test_date_boundaries_and_bad_dates(direct_vm, bibet, accounts):
+    direct_vm.sender = accounts[0]
+    bibet.create_round(cfg(historical_window="2024-02-29/2024-03-31"))
+    direct_vm.value = ONE_GEN
+    bibet.fund_round("1")
+    direct_vm.value = 0
+    bibet.lock_round("1")
+    direct_vm.sender = accounts[1]
+    bibet.submit_trace_claim("1", claim(completion_date="2024-02-29"))
+    must_revert("EXPECTED_BAD_COMPLETION_DATE", bibet.submit_trace_claim, "1", claim(artifact_id="bad-feb", completion_date="2023-02-29"))
+    must_revert("EXPECTED_BAD_COMPLETION_DATE", bibet.submit_trace_claim, "1", claim(artifact_id="bad-apr", completion_date="2024-04-31"))
+
+
+def test_zero_funding_and_lock_without_budget_rejected(direct_vm, bibet, accounts):
+    direct_vm.sender = accounts[0]
+    bibet.create_round(cfg())
+    direct_vm.value = 0
+    must_revert("EXPECTED_DEPOSIT_REQUIRED", bibet.fund_round, "1")
+    must_revert("EXPECTED_BUDGET_REQUIRED", bibet.lock_round, "1")
+
+
+def test_bad_deadline_format_and_order_rejected(direct_vm, bibet, accounts):
+    direct_vm.sender = accounts[0]
+    must_revert("EXPECTED_BAD_DEADLINE", bibet.create_round, cfg(application_close_after="2026-08-30T10:00Z"))
+    must_revert(
+        "EXPECTED_BAD_DEADLINE_ORDER",
+        bibet.create_round,
+        cfg(
+            application_close_after="2026-08-30T14:00:00Z",
+            review_deadline_at="2026-08-30T13:00:00Z",
+        ),
+    )
+    must_revert("EXPECTED_BAD_WINDOW", bibet.create_round, cfg(historical_window="2026-13-01/2026-12-31"))
+
+
+def test_challenge_exactly_at_deadline_fails(direct_vm, bibet, accounts):
+    round_id = open_review_round(
+        direct_vm,
+        bibet,
+        accounts,
+        cfg_json=cfg(review_deadline_at="", challenge_deadline_at="2026-08-30T12:00:00Z"),
+    )
+    direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": "good evidence"})
+    direct_vm.mock_llm(r".*", verdict(70))
+    bibet.request_impact_review(round_id, "1")
+    direct_vm.sender = accounts[2]
+    must_revert(
+        "EXPECTED_CHALLENGE_DEADLINE",
+        bibet.open_challenge,
+        round_id,
+        "1",
+        "eligibility",
+        "A challenge submitted exactly at the deterministic cutoff is late.",
+        json.dumps({"evidence_urls": ["https://challenge.example/exact"]}),
+    )
+
+
+def test_all_zero_scores_multiple_claims_conserve_budget(direct_vm, bibet, accounts):
+    direct_vm.sender = accounts[0]
+    bibet.create_round(cfg())
+    direct_vm.value = ONE_GEN
+    bibet.fund_round("1")
+    direct_vm.value = 0
+    bibet.lock_round("1")
+    for idx, contributor in enumerate(accounts[1:4], start=1):
+        direct_vm.sender = contributor
+        bibet.submit_trace_claim("1", claim(artifact_id=f"zero-{idx}", evidence_urls=[f"https://evidence.example/zero-{idx}.json"]))
+    direct_vm.sender = accounts[0]
+    bibet.close_applications("1")
+    direct_vm.mock_web(r"evidence\.example", {"status": 404, "body": ""})
+    direct_vm.mock_llm(r".*", weak_verdict())
+    for claim_id in ("1", "2", "3"):
+        bibet.request_impact_review("1", claim_id)
+    finalize_after_challenge_deadline(direct_vm, bibet, "1")
+    totals = read_json(bibet.get_round_totals("1"))
+    assert totals["allocated_amount"] == "0"
+    assert totals["unallocated_amount"] == str(ONE_GEN)
+
+
+def test_max_share_cap_many_claimants(direct_vm, bibet, accounts):
+    direct_vm.sender = accounts[0]
+    bibet.create_round(cfg(max_share_bps=2500))
+    direct_vm.value = ONE_GEN
+    bibet.fund_round("1")
+    direct_vm.value = 0
+    bibet.lock_round("1")
+    for idx, contributor in enumerate(accounts[1:5], start=1):
+        direct_vm.sender = contributor
+        bibet.submit_trace_claim("1", claim(artifact_id=f"cap-{idx}", evidence_urls=[f"https://evidence.example/cap-{idx}.json"]))
+    direct_vm.sender = accounts[0]
+    bibet.close_applications("1")
+    direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": "excellent public evidence"})
+    direct_vm.mock_llm(r".*", verdict(100))
+    for claim_id in ("1", "2", "3", "4"):
+        bibet.request_impact_review("1", claim_id)
+    finalize_after_challenge_deadline(direct_vm, bibet, "1")
+    totals = read_json(bibet.get_round_totals("1"))
+    assert totals["allocated_amount"] == str(ONE_GEN)
+    for claim_id in ("1", "2", "3", "4"):
+        assert read_json(bibet.get_allocation("1", claim_id))["amount"] == str(ONE_GEN // 4)

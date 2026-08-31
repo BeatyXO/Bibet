@@ -8,7 +8,19 @@ import { getGeneratedKey } from "../lib/wallet";
 import { useWallet } from "./wallet-provider";
 
 type Afterledger = {
-  round: { id: string; title: string; creator: string; status: string; budget: string };
+  round: {
+    id: string;
+    title: string;
+    creator: string;
+    status: string;
+    budget: string;
+    config?: {
+      application_close_after?: string;
+      review_deadline_at?: string;
+      challenge_deadline_at?: string;
+      finalization_deadline_at?: string;
+    };
+  };
   totals: Record<string, string>;
   claims: Array<Record<string, unknown>>;
   verdicts: Record<string, Record<string, unknown>>;
@@ -36,6 +48,7 @@ export function RoundDetail({ roundId }: { roundId: string }) {
   const [challengeReason, setChallengeReason] = useState("Challenge whether the evidence proves the claimed public-good impact.");
   const [challengeEvidenceJson, setChallengeEvidenceJson] = useState(JSON.stringify({ evidence_urls: ["https://raw.githubusercontent.com/BeatyXO/Bibet/main/README.md"] }, null, 2));
   const [challengeResponse, setChallengeResponse] = useState("The submitted public evidence and trace URLs demonstrate the completed work and attribution.");
+  const [nowMs, setNowMs] = useState(0);
 
   const refresh = useCallback(async () => {
     setState("Loading afterledger...");
@@ -53,6 +66,13 @@ export function RoundDetail({ roundId }: { roundId: string }) {
       refresh();
     });
   }, [refresh]);
+
+  useEffect(() => {
+    const updateClock = () => setNowMs(Date.now());
+    window.queueMicrotask(updateClock);
+    const timer = window.setInterval(updateClock, 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   if (!ledger) {
     return (
@@ -114,6 +134,21 @@ export function RoundDetail({ roundId }: { roundId: string }) {
     }
   }
 
+  const status = ledger.round.status;
+  const isCreator = Boolean(address && ledger.round.creator.toLowerCase() === address.toLowerCase());
+  const hasWallet = Boolean(address && mode !== "none");
+  const deadlinePassed = (value?: string) => (value && nowMs ? Date.parse(value) <= nowMs : false);
+  const canFund = hasWallet && isCreator && (status === "DRAFT" || status === "FUNDING");
+  const canLock = hasWallet && isCreator && (status === "DRAFT" || status === "FUNDING");
+  const canSubmit = hasWallet && status === "OPEN";
+  const canClose = hasWallet && isCreator && status === "OPEN";
+  const canReview = hasWallet && status === "REVIEW" && !deadlinePassed(ledger.round.config?.review_deadline_at);
+  const canExpire = hasWallet && status === "REVIEW" && deadlinePassed(ledger.round.config?.review_deadline_at);
+  const canChallenge = hasWallet && status === "REVIEW" && !deadlinePassed(ledger.round.config?.challenge_deadline_at);
+  const canFinalize = hasWallet && isCreator && status === "REVIEW" && deadlinePassed(ledger.round.config?.challenge_deadline_at);
+  const canSettle = hasWallet && status === "FINALIZED";
+  const walletHint = hasWallet ? "" : "Connect wallet to send writes.";
+
   return (
     <div className="detailGrid">
       <section className="detailCard wide">
@@ -140,22 +175,23 @@ export function RoundDetail({ roundId }: { roundId: string }) {
         <p>Use these controls to run the real contract flow from this round: fund, lock/open, submit or update claims, review, challenge, adjudicate, finalise, and settle.</p>
         <div className="actionGrid">
           <label>Fund amount in GEN<input value={fundAmount} onChange={(event) => setFundAmount(event.target.value)} /></label>
-          <button className="primary" onClick={fundRound}><Send size={14} />Fund</button>
-          <button className="secondaryAction" onClick={() => sendWrite("lock_round", [roundId])}>Lock / open</button>
-          <button className="secondaryAction" onClick={() => sendWrite("close_applications", [roundId])}>Close applications</button>
-          <button className="secondaryAction" onClick={() => sendWrite("permissionless_advance", [roundId])}>Permissionless advance</button>
-          <button className="secondaryAction" onClick={() => sendWrite("finalize_round", [roundId])}>Finalise</button>
-          <button className="secondaryAction" onClick={() => sendWrite("withdraw_unallocated_budget", [roundId])}>Withdraw unallocated</button>
+          <button className="primary" disabled={!canFund} title={walletHint || "Creator only before locking."} onClick={fundRound}><Send size={14} />Fund</button>
+          <button className="secondaryAction" disabled={!canLock} title={walletHint || "Creator only while draft/funding."} onClick={() => sendWrite("lock_round", [roundId])}>Lock / open</button>
+          <button className="secondaryAction" disabled={!canClose} title={walletHint || "Creator only while open."} onClick={() => sendWrite("close_applications", [roundId])}>Close applications</button>
+          <button className="secondaryAction" disabled={!hasWallet || status === "FINALIZED" || status === "CANCELLED"} title={walletHint || "Moves open/review rounds when configured deadlines allow it."} onClick={() => sendWrite("permissionless_advance", [roundId])}>Permissionless advance</button>
+          <button className="secondaryAction" disabled={!canFinalize} title={walletHint || "Creator only after challenge deadline and all challenges are resolved."} onClick={() => sendWrite("finalize_round", [roundId])}>Finalise</button>
+          <button className="secondaryAction" disabled={!canSettle || !isCreator} title={walletHint || "Creator only after finalization."} onClick={() => sendWrite("withdraw_unallocated_budget", [roundId])}>Withdraw unallocated</button>
         </div>
         <div className="actionGrid two">
           <label>Claim id<input value={claimId} onChange={(event) => setClaimId(event.target.value)} /></label>
-          <button className="secondaryAction" onClick={() => sendWrite("request_impact_review", [roundId, claimId])}>Request review</button>
-          <button className="secondaryAction" onClick={() => sendWrite("claim_allocation", [roundId, claimId])}>Claim allocation</button>
+          <button className="secondaryAction" disabled={!canReview} title={walletHint || "Available during review before the review deadline."} onClick={() => sendWrite("request_impact_review", [roundId, claimId])}>Request review</button>
+          <button className="secondaryAction" disabled={!canExpire} title={walletHint || "Available after the review deadline for unreviewed claims."} onClick={() => sendWrite("expire_unreviewed_claim", [roundId, claimId])}>Expire unreviewed</button>
+          <button className="secondaryAction" disabled={!canSettle} title={walletHint || "Contributor can claim after finalization."} onClick={() => sendWrite("claim_allocation", [roundId, claimId])}>Claim allocation</button>
         </div>
         <label className="fullLabel">Claim JSON<textarea value={claimJson} onChange={(event) => setClaimJson(event.target.value)} /></label>
         <div className="actionGrid two">
-          <button className="secondaryAction" onClick={() => sendWrite("submit_trace_claim", [roundId, claimJson])}>Submit claim</button>
-          <button className="secondaryAction" onClick={() => sendWrite("update_claim_before_close", [roundId, claimId, claimJson])}>Update claim</button>
+          <button className="secondaryAction" disabled={!canSubmit} title={walletHint || "Available while applications are open."} onClick={() => sendWrite("submit_trace_claim", [roundId, claimJson])}>Submit claim</button>
+          <button className="secondaryAction" disabled={!canSubmit} title={walletHint || "Contributor can update before applications close."} onClick={() => sendWrite("update_claim_before_close", [roundId, claimId, claimJson])}>Update claim</button>
         </div>
         <div className="actionGrid two">
           <label>Challenge id<input value={challengeId} onChange={(event) => setChallengeId(event.target.value)} /></label>
@@ -165,9 +201,9 @@ export function RoundDetail({ roundId }: { roundId: string }) {
         <label className="fullLabel">Challenger evidence JSON<textarea value={challengeEvidenceJson} onChange={(event) => setChallengeEvidenceJson(event.target.value)} /></label>
         <label className="fullLabel">Contributor response<textarea value={challengeResponse} onChange={(event) => setChallengeResponse(event.target.value)} /></label>
         <div className="actionGrid two">
-          <button className="secondaryAction" onClick={() => sendWrite("open_challenge", [roundId, claimId, challengeField, challengeReason, challengeEvidenceJson])}>Open challenge</button>
-          <button className="secondaryAction" onClick={() => sendWrite("respond_to_challenge", [roundId, challengeId, challengeResponse])}>Respond</button>
-          <button className="secondaryAction" onClick={() => sendWrite("adjudicate_challenge", [roundId, challengeId])}>Adjudicate</button>
+          <button className="secondaryAction" disabled={!canChallenge} title={walletHint || "Available during review before challenge deadline."} onClick={() => sendWrite("open_challenge", [roundId, claimId, challengeField, challengeReason, challengeEvidenceJson])}>Open challenge</button>
+          <button className="secondaryAction" disabled={!canChallenge} title={walletHint || "Contributor can respond before challenge deadline."} onClick={() => sendWrite("respond_to_challenge", [roundId, challengeId, challengeResponse])}>Respond</button>
+          <button className="secondaryAction" disabled={!canChallenge && status !== "REVIEW"} title={walletHint || "Adjudicates an open or answered challenge."} onClick={() => sendWrite("adjudicate_challenge", [roundId, challengeId])}>Adjudicate</button>
         </div>
         {!address && <button className="primary" onClick={openWallet}>Connect wallet <ArrowUpRight size={14} /></button>}
         {actionState && <div className="txState">{actionState}{lastTx && <a href={explorerTx(lastTx)} target="_blank">View transaction <ExternalLink size={12} /></a>}</div>}
@@ -187,7 +223,7 @@ function defaultClaimJson() {
       title: "Completed public-good artifact",
       completion_date: "2026-08-30",
       impact_statement: "Describe the completed public-good work, who used it, and why the evidence proves impact.",
-      evidence_urls: ["https://raw.githubusercontent.com/BeatyXO/Bibet/main/README.md"],
+      evidence_manifest: [{ url: "https://raw.githubusercontent.com/BeatyXO/Bibet/main/README.md", sha256: "" }],
       trace_urls: ["https://raw.githubusercontent.com/BeatyXO/Bibet/main/contracts/bibet.py"],
       contributor_name: "Contributor",
       requested_tags: ["public-goods"],

@@ -49,6 +49,12 @@ export function StartRoundForm() {
       if (!Number.isInteger(config.max_share_bps) || config.max_share_bps < 100 || config.max_share_bps > 2500) {
         throw new Error("Max recipient share must be between 100 and 2500 bps.");
       }
+      validateDeadlineOrder([
+        config.application_close_after,
+        config.review_deadline_at,
+        config.challenge_deadline_at,
+        config.finalization_deadline_at,
+      ]);
       const beforeRaw = await readClient.readContract({ address: BIBET_CONTRACT, functionName: "get_round_count", args: [] });
       const before = Number(beforeRaw || 0);
       setTxState("Preparing create_round transaction...");
@@ -98,7 +104,19 @@ export function StartRoundForm() {
 
 function isoDeadline(value: string) {
   if (!value.trim()) return "";
-  return `${value}:00Z`;
+  return new Date(value).toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+function validateDeadlineOrder(values: string[]) {
+  const present = values.filter(Boolean);
+  if (present.length !== values.length && present.length > 0) {
+    throw new Error("Either fill all lifecycle deadlines or leave all deadline fields blank.");
+  }
+  for (let index = 1; index < values.length; index += 1) {
+    if (values[index - 1] && values[index] && values[index - 1] > values[index]) {
+      throw new Error("Deadline order must be application close ≤ review ≤ challenge ≤ finalization.");
+    }
+  }
 }
 
 async function discoverCreatedRound(before: number, creator: string, title: string, historicalWindow: string) {

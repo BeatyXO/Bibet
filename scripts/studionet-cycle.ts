@@ -21,6 +21,18 @@ const client = createClient({ chain: studionet, account: creator });
 const oneGen = 1_000_000_000_000_000_000n;
 const txs: Array<{ label: string; hash: string; status?: unknown; result?: unknown }> = [];
 
+function isoAfter(seconds: number) {
+  return new Date(Date.now() + seconds * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+async function waitUntil(label: string, iso: string) {
+  const ms = Date.parse(iso) - Date.now() + 2_000;
+  if (ms > 0) {
+    console.log(`Waiting ${Math.ceil(ms / 1000)}s for ${label}: ${iso}`);
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+}
+
 function assertAccepted(label: string, receipt: { status?: unknown; statusName?: unknown; result?: unknown; resultName?: unknown }) {
   const status = receipt.statusName ?? receipt.status;
   const result = receipt.resultName ?? receipt.result;
@@ -70,19 +82,6 @@ async function readCount() {
   return Number(raw || 0);
 }
 
-const roundConfig = {
-  title: "BIBET live public-goods evidence round",
-  round_type: "retroactive_public_goods",
-  historical_window: "2024-01-01/2026-08-01",
-  rubric: ["reach", "depth", "durability", "additionality", "public_good_fit"],
-  policy_version: "bibet-studionet-v1",
-  max_share_bps: 2500,
-  application_close_after: "2026-01-01T00:00:00Z",
-  review_deadline_at: "2026-01-01T00:10:00Z",
-  challenge_deadline_at: "2026-01-01T00:20:00Z",
-  finalization_deadline_at: "2026-01-01T00:30:00Z",
-};
-
 const claim = {
   artifact_id: "oss-docs-public-health-index-2026",
   title: "Open public-health documentation index",
@@ -108,6 +107,21 @@ async function main() {
   console.log(`Challenger: ${challenger.address}`);
 
   const before = await readCount();
+  const deadlines = {
+    application_close_after: isoAfter(45),
+    review_deadline_at: isoAfter(120),
+    challenge_deadline_at: isoAfter(180),
+    finalization_deadline_at: isoAfter(210),
+  };
+  const roundConfig = {
+    title: "BIBET live public-goods evidence round",
+    round_type: "retroactive_public_goods",
+    historical_window: "2024-01-01/2026-08-01",
+    rubric: ["reach", "depth", "durability", "additionality", "public_good_fit"],
+    policy_version: "bibet-studionet-v1",
+    max_share_bps: 2500,
+    ...deadlines,
+  };
   await write("deterministic create_round", creator, "create_round", [JSON.stringify(roundConfig)]);
   const roundId = String(await readCount());
   if (Number(roundId) !== before + 1) throw new Error(`Expected new round counter ${before + 1}, got ${roundId}`);
@@ -140,6 +154,7 @@ async function main() {
     [roundId, "1", "The trace describes a completed open reference index; the evidence URL is intentionally simple for Studionet smoke testing."],
   );
   await write("nondeterministic adjudicate_challenge", challenger, "adjudicate_challenge", [roundId, "1"]);
+  await waitUntil("challenge deadline", deadlines.challenge_deadline_at);
   await write("deterministic finalize_round", creator, "finalize_round", [roundId]);
 
   const afterledger = await read("get_afterledger", [roundId]);

@@ -18,6 +18,18 @@ const client = createClient({ chain: studionet, account: creator });
 const oneGen = 1_000_000_000_000_000_000n;
 const txs: Array<{ label: string; hash: string; status?: unknown; result?: unknown }> = [];
 
+function isoAfter(seconds: number) {
+  return new Date(Date.now() + seconds * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+async function waitUntil(label: string, iso: string) {
+  const ms = Date.parse(iso) - Date.now() + 2_000;
+  if (ms > 0) {
+    console.log(`Waiting ${Math.ceil(ms / 1000)}s for ${label}: ${iso}`);
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+}
+
 function assertAccepted(label: string, receipt: { status?: unknown; statusName?: unknown; result?: unknown; resultName?: unknown }) {
   const status = receipt.statusName ?? receipt.status;
   const result = receipt.resultName ?? receipt.result;
@@ -73,6 +85,12 @@ async function main() {
   console.log(`Contributor: ${contributor.address}`);
 
   const before = await readCount();
+  const deadlines = {
+    application_close_after: isoAfter(45),
+    review_deadline_at: isoAfter(90),
+    challenge_deadline_at: isoAfter(120),
+    finalization_deadline_at: isoAfter(150),
+  };
   await write("positive create_round", creator, "create_round", [
     JSON.stringify({
       title: "BIBET positive evidence integration round",
@@ -81,10 +99,7 @@ async function main() {
       rubric: ["reach", "depth", "durability", "additionality", "public_good_fit"],
       policy_version: "bibet-positive-studionet-v1",
       max_share_bps: 2500,
-      application_close_after: "2026-01-01T00:00:00Z",
-      review_deadline_at: "2026-01-01T00:10:00Z",
-      challenge_deadline_at: "2026-01-01T00:20:00Z",
-      finalization_deadline_at: "2026-01-01T00:30:00Z",
+      ...deadlines,
     }),
   ]);
   const roundId = String(await readCount());
@@ -124,6 +139,7 @@ async function main() {
     throw new Error(`Expected ELIGIBLE positive verdict, got ${JSON.stringify(verdict)}`);
   }
 
+  await waitUntil("challenge deadline", deadlines.challenge_deadline_at);
   await write("positive finalize_round", creator, "finalize_round", [roundId]);
   const allocation = await read("get_allocation", [roundId, "1"]);
   console.log("Positive allocation:");

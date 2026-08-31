@@ -14,6 +14,7 @@ const required = [
   "adjudicate_challenge",
   "finalize_round",
   "permissionless_advance",
+  "expire_unreviewed_claim",
   "claim_allocation",
   "withdraw_unallocated_budget",
   "cancel_unopened_round",
