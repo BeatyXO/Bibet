@@ -7,8 +7,8 @@ The product idea is unchanged: BIBET funds what already proved useful. GenLayer 
 ## Current canonical deployment
 
 - Network: GenLayer StudioNet
-- Contract: `0xE6d0e4FED7Eb013f5B8387338C5C909efcc39128`
-- Deployment transaction: `0x02a5e79d883412df32eab8fab5d351622f341f6a9ebc18814f8c1a038521a5b0`
+- Contract: `0x646641bc1eDB15c6774b1c00acd7439477cFA7DD`
+- Deployment transaction: `0x30b5f913898c217a252b6eec14c7bf0d78d3406ef75b6b1f2d5c8fcc68d3dbf0`
 - Explorer: `https://explorer-studio.genlayer.com`
 - Vercel app: `https://bibet-eight.vercel.app/`
 
@@ -32,7 +32,7 @@ Cancellation is only allowed before a round is opened. Once a round is `OPEN`, t
 
 Each validator independently fetches claimant-submitted HTTP/HTTPS evidence URLs, treats fetched content as untrusted data, handles failed fetches as unavailable evidence, and evaluates eligibility, evidence quality, attribution, duplication risk, impact bands, score, and confidence.
 
-Consensus equivalence compares canonical decision fields, not free-form prose. Exact-match fields are eligibility, evidence quality, attribution, duplication risk, and confidence band. Numeric impact bands and normalized score are tolerance-bounded. `short_reason` is stored for audit context but is not exact-match consensus-critical.
+Consensus equivalence compares canonical decision fields, not free-form prose. `INSUFFICIENT_EVIDENCE` verdicts must agree on eligibility and zero score. Positive `ELIGIBLE` verdicts allow moderate semantic variation only when evidence quality is moderate/strong, attribution is not contradicted, duplication risk is not high, and numeric impact bands stay within tolerance. `short_reason` is stored for audit context but is not exact-match consensus-critical.
 
 Thin, missing, contradictory, or unparseable evidence can resolve to `INSUFFICIENT_EVIDENCE`; BIBET does not force false certainty.
 
@@ -64,13 +64,13 @@ StudioNet reports `contract_balance` through the GenLayer runtime; live verifica
 
 ## Claim and evidence model
 
-Claims are canonicalized before storage. Claim id, contributor, submitted timestamp, and artifact id are immutable after submission. Claim payloads reject unsupported fields, oversized text, missing evidence, duplicate evidence URLs, non-HTTP(S) URLs, localhost/private-network URLs, and empty public-good impact statements.
+Claims are canonicalized before storage. Claim id, contributor, submitted timestamp, and artifact id are immutable after submission. Claim payloads reject unsupported fields, oversized text, missing evidence, duplicate evidence URLs, non-HTTP(S) URLs, localhost/private-network URLs, empty public-good impact statements, non-ISO completion dates, and completion dates outside the round's configured historical window.
 
 Configured bounds include title 120 chars, artifact id 96 chars, impact statement 1200 chars, URL 240 chars, evidence URLs 5, claims per round 80, and challenges per round 80.
 
 ## Challenge model
 
-Challenges target reviewed claims only and must name an allowed verdict field. Duplicate challenges against the same claim, field, and verdict version are rejected. Contributors can respond once while the challenge is open. `adjudicate_challenge(round_id, challenge_id)` is the semantic challenge review write: GenLayer validators evaluate the original claim, original verdict, challenger evidence/reason, and contributor response, then write a new verdict version when consensus succeeds. Finalization is blocked while unresolved challenges exist.
+Challenges target reviewed claims only and must name an allowed verdict field. Duplicate challenges against the same claim, field, and verdict version are rejected. Contributors can respond once while the challenge is open. `adjudicate_challenge(round_id, challenge_id)` is the semantic challenge review write: GenLayer validators evaluate the original claim, original verdict, challenger evidence/reason, and contributor response, then write a new verdict version when consensus succeeds. Finalization is blocked until the deterministic `challenge_deadline_at` has passed and unresolved challenges are adjudicated.
 
 ## Frontend
 
@@ -78,8 +78,8 @@ The frontend has separate app pages:
 
 - `/` landing page, no fake stats
 - `/rounds` live round summaries read from `get_round_count()` and `get_round_summary()`
-- `/rounds/[id]` live afterledger read
-- `/start` create-round flow
+- `/rounds/[id]` live afterledger read plus fund, lock/open, submit/update claim, close applications, request review, challenge/respond/adjudicate, finalise, claim allocation, withdraw unallocated, and permissionless advance controls
+- `/start` create-round flow with first-class application/review/challenge/finalisation deadlines
 - `/how` protocol explanation
 - `/audit` audit/explorer surface
 
@@ -89,7 +89,7 @@ Injected EIP-1193 wallets are the primary production path. The generated browser
 
 ```bash
 NEXT_PUBLIC_GENLAYER_NETWORK=studionet
-NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS=0xE6d0e4FED7Eb013f5B8387338C5C909efcc39128
+NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS=0x646641bc1eDB15c6774b1c00acd7439477cFA7DD
 NEXT_PUBLIC_GENLAYER_EXPLORER_URL=https://explorer-studio.genlayer.com
 ```
 
@@ -100,56 +100,56 @@ npm install
 npm run typecheck
 npm run lint
 npm run test:direct
+npm run test:allocations
 npm run build
 ```
 
 ## Contract validation
 
 ```bash
-$env:PYTHONIOENCODING='utf-8'
-genvm-lint contracts/bibet.py
+npm run lint:contract
 npm run verify:schema
 ```
 
 Latest results:
 
-- GenVM lint: passed, 3 checks
-- Schema verification: passed for `0xE6d0e4FED7Eb013f5B8387338C5C909efcc39128`
+- GenVM lint: basic lint passed locally; `genvm-lint check` is wired in CI but this Windows cache returned `Failed to load SDK` after lint passed
+- Schema verification: passed for `0x646641bc1eDB15c6774b1c00acd7439477cFA7DD`
 - TypeScript: passed
 - ESLint: passed
 - Next build: passed
-- Direct tests: 64 passed, 0 failed
-- StudioNet integration: 14 passed, 0 failed
+- Direct Mode pytest: 6 passed, 0 failed
+- Supplementary allocation vectors: 13 passed, 0 failed
+- Supplementary static checks: 51 passed, 0 failed
+- StudioNet insufficient-evidence integration: 14 transactions accepted
+- StudioNet positive economic proof: 8 transactions accepted, `ELIGIBLE`, score `71`, allocation claimed
 
 ## Fresh StudioNet lifecycle proof
 
-All transactions below finalized with status `5` and result `6` on the fresh contract:
+All transactions below finalized with status `5` and result `6` on the current fresh contract.
 
-- `create_round`: `0xab670b9255c0ad91c852d36908c71dbe7c2764f18d56b71ec0724d9f793cbb31`
-- `fund_round`: `0x9675eb055dc9cc4173246effcb784ac93b4c2b57e1e3656c846cd047a523e550`
-- `lock_round`: `0x6396a6760f698cbe3f5e6c24924026d497fbbd2065e025e39d4d091ad86144d8`
-- `submit_trace_claim`: `0xe13c0ceb9eff8b90de69701294ff681bb3903af9faa7498cccbda47cdcb17d31`
-- `update_claim_before_close`: `0x2d6566b7266094b81482bfada6a2b649f1f3779f32efa53c0b823c83cc2ed8e7`
-- `close_applications`: `0x28ed44b584d247714388543045bf2850f7cea9d132ed171c2f8a239feb8a3e65`
-- `request_impact_review`: `0x6f2dbc2101e20d94974051b6e4f7afeae351715a13d67ff7eb5844df5ab636e2`
-- `open_challenge`: `0xf6600b52469bf920c479c452c217f7c5e35cb5ea6162e8e95a064beaa2cdd1d4`
-- `respond_to_challenge`: `0x9178175baaa2ce07d100cdda64d86b271be8b33f0e9f211c95bc36d59ecd0d24`
-- `adjudicate_challenge`: `0xd0643a7c69cad5443b2d6d4aa5c799cbb469ad59bdfa27fb96cfb36be70a82ed`
-- `finalize_round`: `0x3be11b71718a02671df025fb8287b29a77ace2123d3995d3e2a56b4e34086709`
-- `withdraw_unallocated_budget`: `0xa85fde653330b4db9c873879960859f7dde36366eee2c6447624b0f34be201ed`
-- `create_cancel_round`: `0xc64295fe8133f979cb7f03fc9ff001145974df0219494aac4888a44bdf971ada`
-- `cancel_unopened_round`: `0xdc12c957b65b4e888999097715a524782c4075214867d99aeb49d61fee4e8edb`
+- Positive `create_round`: `0x2d569aef5e8b969618077de4edf2db81814746b77bdbeda328ee506a47636ca3`
+- Positive `fund_round`: `0xee696ec786c63dce081ef542488d043aed3eec7b0c24a3780705bbfd1d81165b`
+- Positive `lock_round`: `0x668c30f4f3fb368aad8f724d56a0cf917dc39065eaca1439a907bfda79155f90`
+- Positive `submit_trace_claim`: `0xec701f847ec45088a32dc5c0e80b44437dff0ecd0aa1425985e1e1c6af210341`
+- Positive `close_applications`: `0xa231cd577e2d0d7e1c63c92cc6b64d40fb6c446b8b4472c7be574a4d386cb59e`
+- Positive `request_impact_review`: `0x13f1e0c98a9c56a78eb010c1cb83dee77e304c2352cc382154a48107bae9feba`
+- Positive `finalize_round`: `0x40ffa9eb89de7f7a91a0d110f3adf746f7132344ea55569884b0d9534d4da67d`
+- Positive `claim_allocation`: `0x2006b94e48390dda8527a4cb5d3e77c4e315664abb9f5b912237d99716f32839`
 
-The live evidence was intentionally weak (`https://example.com/`), so the review resolved to `INSUFFICIENT_EVIDENCE`, allocation was zero, and the creator-only unallocated withdrawal path was exercised.
+Positive verdict: `ELIGIBLE`, evidence quality `MODERATE`, duplication risk `LOW`, normalized impact score `71`.
+
+Positive allocation claimed: `250000000000000`. Remaining unallocated budget: `750000000000000`.
+
+An insufficient-evidence challenge/adjudication/withdrawal smoke cycle was also executed on the previous fresh hardened contract and passed 14 accepted transactions.
 
 ## CI
 
-GitHub Actions runs `npm ci`, `npm run typecheck`, `npm run lint`, `npm run test:direct`, and `npm run build`.
+GitHub Actions runs Python setup, `python -m pip install -r requirements.txt`, `npm ci`, `npm run typecheck`, `npm run lint`, `npm run lint:contract`, `npm run test:direct`, `npm run test:allocations`, and `npm run build`.
 
 StudioNet live verification is intentionally not part of default PR CI because it requires funded test keys.
 
 ## Known limitations
 
-- Direct tests are local deterministic/static regression tests, not a full GenLayer simulator harness. `npm view genlayer-test version` currently returns 404, so the `genlayer-test/gltest.direct` harness could not be installed from npm in this environment. Fresh StudioNet lifecycle tests provide the live GenLayer proof.
-- A positive-evidence StudioNet harness is included as `npm run test:studionet:positive`. The first live attempt correctly failed its non-zero allocation assertion because validators marked GitHub/Vercel HTML evidence as insufficient to verify CI/tests/attribution; use raw, immutable, public evidence URLs for a non-zero proof.
-- The frontend can read live rounds and afterledgers and create rounds, but full action panels for every lifecycle write are still intentionally limited to avoid pretending unsupported UX is production-complete.
+- StudioNet live verification is intentionally not part of default PR CI because it requires funded test keys.
+- The frontend exposes every core lifecycle write, but it is still a compact protocol console rather than a fully guided consumer UX.
