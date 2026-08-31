@@ -89,7 +89,7 @@ const claim = {
   contributor_name: "BIBET integration contributor",
   impact_statement:
     "A completed open documentation index that helps community clinics locate public-health references faster and reuse the material without paywalls.",
-  evidence_urls: ["https://example.com/"],
+  evidence_manifest: [{ url: "https://example.com/", sha256: "6f5635035f36ad500b4fc4ea0a2e2c2f6a5f6f8b6e7f7b4f7f3f7e7f7f7f7f7f" }],
   trace_urls: ["https://example.com/"],
   requested_tags: ["open-data", "public-health", "documentation"],
 };
@@ -145,7 +145,7 @@ async function main() {
     "deterministic open_challenge",
     challenger,
     "open_challenge",
-    [roundId, "1", "evidence_quality", "Challenge whether a single source is sufficient for durable public-good impact.", JSON.stringify({ evidence_urls: ["https://example.com/"] })],
+    [roundId, "1", "evidence_quality", "Challenge whether a single source is sufficient for durable public-good impact.", JSON.stringify({ evidence_manifest: [{ url: "https://example.com/", sha256: "6f5635035f36ad500b4fc4ea0a2e2c2f6a5f6f8b6e7f7b4f7f3f7e7f7f7f7f7f" }] })],
   );
   await write(
     "deterministic respond_to_challenge",

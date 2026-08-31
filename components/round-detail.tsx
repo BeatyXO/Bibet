@@ -46,7 +46,7 @@ export function RoundDetail({ roundId }: { roundId: string }) {
   const [claimJson, setClaimJson] = useState(defaultClaimJson());
   const [challengeField, setChallengeField] = useState("evidence_quality");
   const [challengeReason, setChallengeReason] = useState("Challenge whether the evidence proves the claimed public-good impact.");
-  const [challengeEvidenceJson, setChallengeEvidenceJson] = useState(JSON.stringify({ evidence_urls: ["https://raw.githubusercontent.com/BeatyXO/Bibet/main/README.md"] }, null, 2));
+  const [challengeEvidenceJson, setChallengeEvidenceJson] = useState(JSON.stringify({ evidence_manifest: [] }, null, 2));
   const [challengeResponse, setChallengeResponse] = useState("The submitted public evidence and trace URLs demonstrate the completed work and attribution.");
   const [nowMs, setNowMs] = useState(0);
 
@@ -223,7 +223,7 @@ function defaultClaimJson() {
       title: "Completed public-good artifact",
       completion_date: "2026-08-30",
       impact_statement: "Describe the completed public-good work, who used it, and why the evidence proves impact.",
-      evidence_manifest: [{ url: "https://raw.githubusercontent.com/BeatyXO/Bibet/main/README.md", sha256: "" }],
+      evidence_manifest: [],
       trace_urls: ["https://raw.githubusercontent.com/BeatyXO/Bibet/main/contracts/bibet.py"],
       contributor_name: "Contributor",
       requested_tags: ["public-goods"],

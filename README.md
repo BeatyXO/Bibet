@@ -124,18 +124,9 @@ Latest results:
 - StudioNet insufficient-evidence/challenge integration: pending rerun on final hardened deployment
 - StudioNet positive economic proof: deterministic setup transactions accepted on final hardened deployment; semantic review attempts reached StudioNet but did not finalize with majority agreement before RPC instability/stall. See `scripts/studionet-positive-cycle.ts` for the digest-backed immutable proof inputs.
 
-## Fresh StudioNet lifecycle proof
+## StudioNet proof status
 
-All transactions below finalized with status `5` and result `6` on the current fresh contract.
-
-- Positive `create_round`: `0x2d569aef5e8b969618077de4edf2db81814746b77bdbeda328ee506a47636ca3`
-- Positive `fund_round`: `0xee696ec786c63dce081ef542488d043aed3eec7b0c24a3780705bbfd1d81165b`
-- Positive `lock_round`: `0x668c30f4f3fb368aad8f724d56a0cf917dc39065eaca1439a907bfda79155f90`
-- Positive `submit_trace_claim`: `0xec701f847ec45088a32dc5c0e80b44437dff0ecd0aa1425985e1e1c6af210341`
-- Positive `close_applications`: `0xa231cd577e2d0d7e1c63c92cc6b64d40fb6c446b8b4472c7be574a4d386cb59e`
-- Positive `request_impact_review`: `0x13f1e0c98a9c56a78eb010c1cb83dee77e304c2352cc382154a48107bae9feba`
-- Positive `finalize_round`: `0x40ffa9eb89de7f7a91a0d110f3adf746f7132344ea55569884b0d9534d4da67d`
-- Positive `claim_allocation`: `0x2006b94e48390dda8527a4cb5d3e77c4e315664abb9f5b912237d99716f32839`
+Historical pre-hardening transaction traces are intentionally not presented as proof for the current deployment. A fresh positive semantic-review trail must be recorded here only after it completes against the current contract.
 
 Positive verdict: `ELIGIBLE`, evidence quality `MODERATE`, duplication risk `LOW`, normalized impact score `71`.
 
