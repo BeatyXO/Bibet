@@ -427,6 +427,34 @@ def test_zero_funding_and_lock_without_budget_rejected(direct_vm, bibet, account
     must_revert("EXPECTED_BUDGET_REQUIRED", bibet.lock_round, "1")
 
 
+def test_lock_requires_complete_deadlines_and_funded_round_can_settle(direct_vm, bibet, accounts):
+    direct_vm.sender = accounts[0]
+    bibet.create_round(cfg(application_close_after=""))
+    direct_vm.value = ONE_GEN
+    bibet.fund_round("1")
+    direct_vm.value = 0
+    must_revert("EXPECTED_COMPLETE_DEADLINES", bibet.lock_round, "1")
+
+    bibet.create_round(cfg(title="Complete deadline settlement round"))
+    direct_vm.value = ONE_GEN
+    bibet.fund_round("2")
+    direct_vm.value = 0
+    bibet.lock_round("2")
+    direct_vm.sender = accounts[1]
+    bibet.submit_trace_claim("2", claim())
+    direct_vm.sender = accounts[0]
+    bibet.close_applications("2")
+    direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": DEFAULT_EVIDENCE_BODY})
+    direct_vm.mock_llm(r".*", verdict(80))
+    bibet.request_impact_review("2", "1")
+    assert direct_vm.run_validator() is True
+    finalize_after_challenge_deadline(direct_vm, bibet, "2")
+    direct_vm.sender = accounts[1]
+    bibet.claim_allocation("2", "1")
+    totals = read_json(bibet.get_round_totals("2"))
+    assert int(totals["claimed_amount"]) > 0
+
+
 def test_bad_deadline_format_and_order_rejected(direct_vm, bibet, accounts):
     direct_vm.sender = accounts[0]
     must_revert("EXPECTED_BAD_DEADLINE", bibet.create_round, cfg(application_close_after="2026-08-30T10:00Z"))

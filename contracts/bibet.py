@@ -454,6 +454,10 @@ class BibetProtocol(gl.Contract):
             raise gl.vm.UserError("EXPECTED_LOCKABLE_ROUND")
         if int(data["budget"]) <= 0:
             raise gl.vm.UserError("EXPECTED_BUDGET_REQUIRED")
+        config = data.get("config", {})
+        required_deadlines = ("application_close_after", "review_deadline_at", "challenge_deadline_at", "finalization_deadline_at")
+        if any(not str(config.get(key, "")) for key in required_deadlines):
+            raise gl.vm.UserError("EXPECTED_COMPLETE_DEADLINES")
         data["status"] = "OPEN"
         data["locked_at"] = self._now()
         self.rounds[round_id] = self._save(data)

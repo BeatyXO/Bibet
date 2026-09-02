@@ -33,7 +33,7 @@ jobs:
   direct-mode:
     runs-on: ubuntu-latest
     env:
-      GENVM_VERSION: v0.3.0-rc7
+      GENVM_VERSION: v0.2.16
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -41,13 +41,13 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install -r requirements.txt
-      - name: Cache GenVM runner bundle for genlayer-test
+      - name: Cache GenVM bundle for genlayer-test
         shell: bash
         run: |
           cache_dir="$HOME/.cache/gltest-direct"
           mkdir -p "$cache_dir"
           curl --fail --location --retry 3 \
-            "https://github.com/genlayerlabs/genvm/releases/download/${GENVM_VERSION}/genvm-runners-all.tar.xz" \
+            "https://github.com/genlayerlabs/genvm/releases/download/${GENVM_VERSION}/genvm-universal.tar.xz" \
             --output "$cache_dir/genvm-universal-${GENVM_VERSION}.tar.xz"
       - run: pytest tests/direct -v
 
