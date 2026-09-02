@@ -97,7 +97,7 @@ const claim = {
 const claimUpdate = {
   impact_statement:
     "A completed open documentation index that helps community clinics locate public-health references faster, reuse the material without paywalls, and audit the source trail.",
-  trace_urls: ["https://example.com/"],
+  trace_urls: ["https://github.com/BeatyXO/Bibet/commit/5f526bb"],
 };
 
 async function main() {
