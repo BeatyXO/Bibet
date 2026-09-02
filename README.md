@@ -7,8 +7,8 @@ The product idea is unchanged: BIBET funds what already proved useful. GenLayer 
 ## Current canonical deployment
 
 - Network: GenLayer StudioNet
-- Contract: `0xD90B770b3d149361C475bABB361aF0776e497A76`
-- Deployment transaction: `0x84d2d0e45b949fa54977451b50139ec199c0c49b237bc1f58f328fa666395279`
+- Contract: `0x3F3F320e9767c6Ac9b8c418c3d7FB416B740c4Cf`
+- Deployment transaction: `0xc592015876993c82f5a352fb681d720ed6aa5e302a6634fa25e7d561bf7e06e8`
 - Explorer: `https://explorer-studio.genlayer.com`
 - Vercel app: `https://bibet-eight.vercel.app/`
 
@@ -89,7 +89,7 @@ Injected EIP-1193 wallets are the primary production path. The generated browser
 
 ```bash
 NEXT_PUBLIC_GENLAYER_NETWORK=studionet
-NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS=0xD90B770b3d149361C475bABB361aF0776e497A76
+NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS=0x3F3F320e9767c6Ac9b8c418c3d7FB416B740c4Cf
 NEXT_PUBLIC_GENLAYER_EXPLORER_URL=https://explorer-studio.genlayer.com
 ```
 
@@ -114,7 +114,7 @@ npm run verify:schema
 Latest results:
 
 - GenVM lint: basic lint passed locally; `genvm-lint check` is wired in CI but this Windows cache returned `Failed to load SDK` after lint passed
-- Schema verification: passed for `0xD90B770b3d149361C475bABB361aF0776e497A76`
+- Schema verification: pending for `0x3F3F320e9767c6Ac9b8c418c3d7FB416B740c4Cf`
 - TypeScript: passed
 - ESLint: passed
 - Next build: passed
@@ -122,11 +122,11 @@ Latest results:
 - Supplementary allocation vectors: 13 passed, 0 failed
 - Supplementary static checks: 62 passed, 0 failed
 - StudioNet insufficient-evidence/challenge integration: pending rerun on final hardened deployment
-- StudioNet positive economic proof: deterministic setup transactions accepted on final hardened deployment; semantic review attempts reached StudioNet but did not finalize with majority agreement before RPC instability/stall. See `scripts/studionet-positive-cycle.ts` for the digest-backed immutable proof inputs.
+- StudioNet positive economic proof: pending on the current deployment. See `scripts/studionet-positive-cycle.ts` for the digest-backed immutable proof inputs.
 
 ## Historical StudioNet proof — earlier deployment only
 
-The eight transactions below belong to the earlier deployment `0x646641bc1eDB15c6774b1c00acd7439477cFA7DD`. They are historical/pre-hardening evidence and must not be attributed to the current deployment `0xD90B770b3d149361C475bABB361aF0776e497A76`.
+The eight transactions below belong to the earlier deployment `0x646641bc1eDB15c6774b1c00acd7439477cFA7DD`. They are historical/pre-hardening evidence and must not be attributed to the current deployment `0x3F3F320e9767c6Ac9b8c418c3d7FB416B740c4Cf`.
 
 - Historical `create_round`: `0x2d569aef5e8b969618077de4edf2db81814746b77bdbeda328ee506a47636ca3`
 - Historical `fund_round`: `0xee696ec786c63dce081ef542488d043aed3eec7b0c24a3780705bbfd1d81165b`
@@ -137,7 +137,9 @@ The eight transactions below belong to the earlier deployment `0x646641bc1eDB15c
 - Historical `finalize_round`: `0x40ffa9eb89de7f7a91a0d110f3adf746f7132344ea55569884b0d9534d4da67d`
 - Historical `claim_allocation`: `0x2006b94e48390dda8527a4cb5d3e77c4e315664abb9f5b912237d99716f32839`
 
-No positive semantic-review or allocation proof is claimed here for the current `0xD90B...` deployment.
+No positive semantic-review or allocation proof is claimed here for the current `0x3F3F...` deployment until the fresh cycle below completes.
+
+The current deployment’s deterministic setup trail was accepted by StudioNet: create `0x6c2e3caac5fad7817ec6c4dcf071e3187276218b5fbc4b307ccb10d5e83d51c6`, fund `0xc8aa86855e04f1d71d7a240fc49003912a69de39a43b009c1f55929cb5c7105d`, lock `0x373e509b0906b1c1ca1a9077f3941d0ed583d69279c20e39b038186d36841d71`, submit `0x998e88e6aab13e86ad99159687d7cd9cdb93813b48faba7895e38b8423fb270b`, and close `0x5febc87f42f50ac4aab6027d6a862409e46b32729c6f280dd288d0525417e176`. The subsequent semantic review transaction `0x08152f405eccc9fda71f35958177c9c7bbb1eaeb55c2873425cb579500546c32` did not reach majority agreement, so no allocation or claim is recorded as current proof.
 
 An insufficient-evidence challenge/adjudication/withdrawal smoke cycle was also executed on the previous fresh hardened contract and passed 14 accepted transactions.
 

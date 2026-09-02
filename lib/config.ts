@@ -1,7 +1,7 @@
 import { createAccount, createClient } from "genlayer-js";
 import { studionet, testnetBradbury } from "genlayer-js/chains";
 
-const DEFAULT_CONTRACT = "0xD90B770b3d149361C475bABB361aF0776e497A76";
+const DEFAULT_CONTRACT = "0x3F3F320e9767c6Ac9b8c418c3d7FB416B740c4Cf";
 const DEFAULT_EXPLORER = "https://explorer-studio.genlayer.com";
 
 function contractAddress() {
