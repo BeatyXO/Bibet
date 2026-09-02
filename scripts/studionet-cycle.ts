@@ -89,8 +89,8 @@ const claim = {
   contributor_name: "BIBET integration contributor",
   impact_statement:
     "A completed open documentation index that helps community clinics locate public-health references faster and reuse the material without paywalls.",
-  evidence_manifest: [{ url: "https://example.com/", sha256: "6f5635035f36ad500b4fc4ea0a2e2c2f6a5f6f8b6e7f7b4f7f3f7e7f7f7f7f7f" }],
-  trace_urls: ["https://example.com/"],
+  evidence_manifest: [{ url: "https://raw.githubusercontent.com/BeatyXO/Bibet/e894d7a030dcfac2cccb874f992a4e180d9d8690/README.md", sha256: "780148860f8193b497d4ac64074764246a365b2b8a54e93c8d9959d57091c360", content_type: "text/markdown", version: "commit-e894d7a030dcfac2cccb874f992a4e180d9d8690" }],
+  trace_urls: ["https://github.com/BeatyXO/Bibet/commit/e894d7a030dcfac2cccb874f992a4e180d9d8690"],
   requested_tags: ["open-data", "public-health", "documentation"],
 };
 
@@ -145,7 +145,7 @@ async function main() {
     "deterministic open_challenge",
     challenger,
     "open_challenge",
-    [roundId, "1", "evidence_quality", "Challenge whether a single source is sufficient for durable public-good impact.", JSON.stringify({ evidence_manifest: [{ url: "https://example.com/", sha256: "6f5635035f36ad500b4fc4ea0a2e2c2f6a5f6f8b6e7f7b4f7f3f7e7f7f7f7f7f" }] })],
+    [roundId, "1", "evidence_quality", "Challenge whether a single source is sufficient for durable public-good impact.", JSON.stringify({ evidence_manifest: [{ url: "https://raw.githubusercontent.com/BeatyXO/Bibet/e894d7a030dcfac2cccb874f992a4e180d9d8690/README.md", sha256: "780148860f8193b497d4ac64074764246a365b2b8a54e93c8d9959d57091c360", content_type: "text/markdown", version: "commit-e894d7a030dcfac2cccb874f992a4e180d9d8690" }] })],
   );
   await write(
     "deterministic respond_to_challenge",

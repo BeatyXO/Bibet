@@ -124,6 +124,21 @@ Latest results:
 - StudioNet insufficient-evidence/challenge integration: pending rerun on final hardened deployment
 - StudioNet positive economic proof: pending on the current deployment. See `scripts/studionet-positive-cycle.ts` for the digest-backed immutable proof inputs.
 
+Full current-deployment lifecycle verification completed on round `2` with real claim, challenge, response, adjudication, finalization, and settlement writes. All transactions were accepted by StudioNet majority consensus. The semantic verdict was `INSUFFICIENT_EVIDENCE` with score `0` because the claim described a public-health index while its committed evidence was the BIBET README; allocation was safely `ZEROED`, and the full funded budget was withdrawn as unallocated.
+
+- Create: `0xd7178492602e43b5ee32227b8e66504f2cc773348a26b7d74d50765b3d37afdf`
+- Fund: `0x281fe2e17ce35e23eba0c45b4fa7f1094bc5b0ae6a51ea7fad590763a705804e`
+- Lock/open: `0x0c4b281a69a4d25f6fa0b727513ca4f57578456de7b1297f65877aa781fa49eb`
+- Submit claim: `0x4395b91f09175ca0c137383d78cd368fb60c7278ac7708db399cf0d45510e038`
+- Update claim: `0xbc4d4b7b282ec2070b351bfff585b93608171c23ea339d16ed3fb6c35ec66917`
+- Close applications: `0xab398b5355b52815fcd529874baa03d371a3bfdd6de3790bc7f0adcc61a799c5`
+- Request review: `0xde209ceb996c2b0c393b650e40a2fb1947c11dba4d1f5eaa4c357b69eddd53f9`
+- Open challenge: `0x26d95f9441e0ed14336a66d60d37ebd3f4f932b69e007784df70428a392d7357`
+- Respond: `0x9e7b40687261e77ee031e44bb69a3ab038110334efccdb177a7729e6522c333c`
+- Adjudicate: `0xbc612210f82748471e989915820aa8884069e091016e65b419a132925532954c`
+- Finalize: `0x2ea9b37e080fee90f673e37242aae3b611bfa5f7416d98f5779d0dbff0702ac6`
+- Withdraw unallocated: `0x90e5e3c3b2e7e440a00e99469cb77a9525b1b5c6bc24ef0e8bdb4b9c3dfd56d2`
+
 ## Historical StudioNet proof — earlier deployment only
 
 The eight transactions below belong to the earlier deployment `0x646641bc1eDB15c6774b1c00acd7439477cFA7DD`. They are historical/pre-hardening evidence and must not be attributed to the current deployment `0x3F3F320e9767c6Ac9b8c418c3d7FB416B740c4Cf`.
