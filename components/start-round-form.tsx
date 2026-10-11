@@ -58,6 +58,12 @@ export function StartRoundForm() {
         config.challenge_deadline_at,
         config.finalization_deadline_at,
       ]);
+      if (fundingModel === "community") {
+        let version: unknown;
+        try { version = await readClient.readContract({ address: BIBET_CONTRACT, functionName: "get_protocol_version", args: [] }); }
+        catch { throw new Error("Community funding is unavailable on the current contract deployment."); }
+        if (version !== "community-funded-v1") throw new Error("Community funding is unavailable on the current contract deployment.");
+      }
       const beforeRaw = await readClient.readContract({ address: BIBET_CONTRACT, functionName: "get_round_count", args: [] });
       const before = Number(beforeRaw || 0);
       setTxState("Preparing create_round transaction...");

@@ -895,6 +895,10 @@ class BibetProtocol(gl.Contract):
         return self._save(next((row for row in data.get("sponsors", []) if row["address"] == str(address).lower()), {}))
 
     @gl.public.view
+    def get_protocol_version(self) -> str:
+        return "community-funded-v1"
+
+    @gl.public.view
     def get_round_count(self) -> str:
         return str(self.round_counter)
 
