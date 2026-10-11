@@ -34,6 +34,14 @@ Round `2` on the deployed CA was funded by two distinct addresses with `0.1 GEN`
 
 The final ledger shows two sponsors, each deposited/refunded/withdrew `0.1 GEN`; `funded_budget = sponsor_refunds_withdrawn = 0.2 GEN`, with zero allocation and zero outstanding reserve. The repeatable scripts are `scripts/studionet-community-proof.ts` and `scripts/studionet-settle-proof.ts`.
 
+### Final score-strengthening verification
+
+The production `Start round` form was used in Chrome to create a zero-value community round. The signed [transaction `0x0f4755...0e898f71`](https://explorer-studio.genlayer.com/transactions/0x0f4755cdbf39d01157751aaaf2eafe576c55695002258d7ae4096f630e898f71) is `FINALIZED`, its GenVM execution is `SUCCESS`, and it returned round ID `3`. This exposed a real frontend receipt bug: `genlayer-js` defaults `waitForTransactionReceipt` to `ACCEPTED`, so the page showed `Transaction 5; execution not finalized.` even though the explorer later showed final success. The current code now explicitly waits for `TransactionStatus.FINALIZED` in create, round-write, and pending-recovery paths. A creator-only `Cancel unopened round` control was also added so a funded verification round can be safely canceled and its sponsor refund withdrawn. These fixes still require CI, merge, production deployment, and a post-deployment funding-button check before that check can be marked PASS.
+
+The positive partial-settlement Direct Mode test now also executes the contributor withdrawal after two sponsors deposit `1 GEN` and `3 GEN`. A mocked positive validator verdict assigns `1 GEN` to the contributor; largest-remainder accounting assigns sponsor refunds of `0.75 GEN` and `2.25 GEN`. Both sponsors withdraw their own shares, the contributor claims once (a repeated claim is rejected), and the final ledger has `claimed_amount = 1 GEN`, `sponsor_refunds_withdrawn = 3 GEN`, and `reserved_outstanding = 0`; withdrawals sum to the original `4 GEN`. This is deterministic Direct Mode evidence with mocked review, not a live positive validator result.
+
+**Score-strengthening status:** Task 1 is not yet complete because the production frontend still needs the receipt fix deployed and its `fund_round` button smoke-tested. Task 2's positive live verdict is externally blocked by the two documented `MAJORITY_DISAGREE` review attempts; no further live consensus retries are being made. The deterministic partial-allocation/refund/withdrawal path is covered in Direct Mode.
+
 The frontend default points to the new CA. The production frontend is live at [bibet-eight.vercel.app](https://bibet-eight.vercel.app/); releases are delivered through the repository's GitHub integration, with no direct Vercel dashboard changes.
 
 ## Release gates
@@ -45,11 +53,11 @@ The frontend default points to the new CA. The production frontend is live at [b
 | G3 Immutable lock snapshot | PASS | Direct Mode rejects deposits after lock. |
 | G4 Review lifecycle preserved | PASS | Existing Direct Mode review and challenge regressions pass. |
 | G5 Contributor allocation math | PASS | 13 allocation vectors and Direct Mode regressions pass. |
-| G6 Exact sponsor refunds | PASS | Partition vectors, all-refund cancellation, and partial-allocation proportional refunds pass in Direct Mode. |
+| G6 Exact sponsor refunds | PASS | Partition vectors, all-refund cancellation, and a partial allocation with real Direct Mode contributor and proportional sponsor withdrawal state changes pass. |
 | G7 Unauthorized/double withdrawals | PASS | Direct Mode proves pre-settlement denial, outsider denial, creator/sponsor ownership, independent sponsor claims, and repeated-withdrawal denial for canceled and finalized refunds. |
 | G8 Original behavior | PASS | Legacy Direct Mode settlement and lifecycle regressions pass. |
 | G9 Adversarial contract tests | PARTIAL | 25 Direct Mode tests pass, including sponsor-cap/pagination and refund entitlement state checks. Full requested matrix and mutation testing are not complete; Direct Mode does not yet simulate a recipient transfer failure to prove rollback under that failure mode. |
-| G10 Frontend checks | PASS | Typecheck, ESLint, build, wallet startup-state tests and receipt cases passed locally; production routes, live ledger/detail, form controls, wallet modal, and safe lifecycle-control states were manually checked in Chrome. Wallet write transactions were not submitted as part of UI QA. |
+| G10 Frontend checks | PARTIAL | Typecheck, ESLint, build, wallet startup-state tests and receipt cases pass. Chrome verified a genuine production create-round write, but exposed the accepted-vs-finalized false-failure described above. The targeted receipt and cancel-control fixes need production deployment and a signed funding-button check. |
 | G11 Contract deployment | PASS | Deployed CA and on-chain source parity verified; protocol version is `community-funded-v1`. |
 | G12 Live multi-sponsor lifecycle | PASS WITH LIMITATION | Two sponsors funded/locked; review attempt timed out by majority disagreement, then contract expiry fallback finalized. No positive allocation proof. |
 | G13 Live refunds | PASS | Both sponsors withdrew exact `0.1 GEN` refunds; ledger liabilities are zero. |
@@ -63,7 +71,7 @@ The deployment, funded refund path, production frontend, accepted-baseline compa
 
 The production UI was manually checked in Chrome for route navigation (`/`, `/rounds`, `/rounds/1`, `/rounds/2`, `/start`, `/how`, `/audit`), live ledger refresh and detail links, wallet modal open/close, form funding-model selection, GEN amount precision/validation, and the lifecycle controls' state/disabled reasons. The red wrong-network notice is an action that asks the injected wallet to switch to StudioNet, adding the chain if needed. Its EIP-1193 fallback was verified with a mocked provider; the live wallet was already on StudioNet during browser QA, so the red state could not be reproduced without changing the user's wallet network.
 
-The wallet startup fix initializes state from read-only `eth_accounts` and `eth_chainId` requests after page load, so an already-authorized account is restored after refresh and a wrong-network notice is shown. `npm run test:wallet` covers connected, disconnected, and wrong-network startup states. After the GitHub merge and production deployment, a Chrome refresh restored the connected account on `/rounds/2` and loaded the live afterledger. No write transaction was initiated or signed during frontend QA. Wallet write actions still require the user to review and approve them in the injected wallet.
+The wallet startup fix initializes state from read-only `eth_accounts` and `eth_chainId` requests after page load, so an already-authorized account is restored after refresh and a wrong-network notice is shown. `npm run test:wallet` covers connected, disconnected, and wrong-network startup states. After the GitHub merge and production deployment, a Chrome refresh restored the connected account on `/rounds/2` and loaded the live afterledger. The zero-value create-round write documented above was signed through the injected wallet. The follow-up funded write is pending deployment of the finalized-receipt fix; wallet approvals remain with the user.
 
 ## Portal submission draft
 

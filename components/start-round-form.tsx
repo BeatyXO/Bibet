@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ArrowUpRight, ExternalLink, Plus } from "lucide-react";
 import { createClient } from "genlayer-js";
+import { TransactionStatus } from "genlayer-js/types";
 import { BIBET_CHAIN, BIBET_CONTRACT, explorerTx, readClient } from "../lib/config";
 import { ensureInjectedChain } from "../lib/wallet";
 import { finalizedExecution } from "../lib/receipt";
@@ -73,7 +74,7 @@ export function StartRoundForm() {
       const hash = await client.writeContract({ address: BIBET_CONTRACT, functionName: "create_round", args: [JSON.stringify(config)], value: 0n, consensusMaxRotations: 3 });
       setRoundTx(hash);
       setTxState("Transaction submitted from injected wallet. Waiting for GenLayer consensus...");
-      const receipt = await client.waitForTransactionReceipt({ hash, interval: 5000, retries: 90 });
+      const receipt = await client.waitForTransactionReceipt({ hash, status: TransactionStatus.FINALIZED, interval: 5000, retries: 90 });
       const outcome = finalizedExecution(receipt);
       if (outcome.ok) setRoundId(await discoverCreatedRound(before, address, config.title, config.historical_window));
       setTxState(`Create round: ${outcome.message}`);
