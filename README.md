@@ -2,7 +2,7 @@
 
 ## Community-Funded Rounds development branch
 
-This branch adds a community funding model while retaining creator-funded rounds. Sponsors fund a shared budget, and after finalization each sponsor can independently withdraw a deterministic proportional share of unused funds. See [the milestone implementation record](docs/community-funded-rounds.md) for the accounting design, test results, and release gates. The canonical deployment below still runs the original creator-funded contract; this branch is not yet deployed.
+This branch adds a community funding model while retaining creator-funded rounds. Sponsors fund a shared budget, and after finalization each sponsor can independently withdraw a deterministic proportional share of unused funds. See [the milestone implementation record](docs/community-funded-rounds.md) for the accounting design, test results, live proof, and remaining release gates.
 
 BIBET is a retroactive public-goods funding protocol for completed work. Contributors submit public evidence, GenLayer validators review credibility/attribution/impact, and deterministic contract logic allocates a funded GEN budget.
 
@@ -11,8 +11,8 @@ The product idea is unchanged: BIBET funds what already proved useful. GenLayer 
 ## Current canonical deployment
 
 - Network: GenLayer StudioNet
-- Contract: `0x3F3F320e9767c6Ac9b8c418c3d7FB416B740c4Cf`
-- Deployment transaction: `0xc592015876993c82f5a352fb681d720ed6aa5e302a6634fa25e7d561bf7e06e8`
+- Contract: [`0xD9e257C0659afe75ff55c76dB76971B3f1bA2FFD`](https://explorer-studio.genlayer.com/contracts/0xD9e257C0659afe75ff55c76dB76971B3f1bA2FFD)
+- Deployment transaction: [`0xd0a577a6dc95600181b0199c3936969188d1b3e9354c4254bc01769be592e81e`](https://explorer-studio.genlayer.com/transactions/0xd0a577a6dc95600181b0199c3936969188d1b3e9354c4254bc01769be592e81e)
 - Explorer: `https://explorer-studio.genlayer.com`
 - Vercel app: `https://bibet-eight.vercel.app/`
 
@@ -93,7 +93,7 @@ The frontend uses injected EIP-1193 wallets for writes and blocks writes on the 
 
 ```bash
 NEXT_PUBLIC_GENLAYER_NETWORK=studionet
-NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS=0x3F3F320e9767c6Ac9b8c418c3d7FB416B740c4Cf
+NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS=0xD9e257C0659afe75ff55c76dB76971B3f1bA2FFD
 NEXT_PUBLIC_GENLAYER_EXPLORER_URL=https://explorer-studio.genlayer.com
 ```
 
@@ -118,17 +118,33 @@ npm run verify:schema
 Latest results:
 
 - GenVM lint: basic lint passed locally; `genvm-lint check` is wired in CI but this Windows cache returned `Failed to load SDK` after lint passed
-- Schema verification: pending for `0x3F3F320e9767c6Ac9b8c418c3d7FB416B740c4Cf`
+- Deployed schema: verified on `0xD9e257C0659afe75ff55c76dB76971B3f1bA2FFD`; protocol version `community-funded-v1`
 - TypeScript: passed
 - ESLint: passed
 - Next build: passed
-- Direct Mode pytest: 21 passed, 0 failed
+- Direct Mode pytest: 24 passed, 0 failed in the latest GitHub Actions run
 - Supplementary allocation vectors: 13 passed, 0 failed
 - Supplementary static checks: 62 passed, 0 failed
-- StudioNet insufficient-evidence/challenge integration: pending rerun on final hardened deployment
-- StudioNet positive economic proof: pending on the current deployment. See `scripts/studionet-positive-cycle.ts` for the digest-backed immutable proof inputs.
+- StudioNet community funding/refunds: two distinct sponsors deposited `0.1 GEN` each, locked the ledger, then withdrew exact refunds after the live review missed consensus and the contract applied its expiry fallback. See the proof transactions below.
 
-Full current-deployment lifecycle verification completed on round `2` with real claim, challenge, response, adjudication, finalization, and settlement writes. All transactions were accepted by StudioNet majority consensus. The semantic verdict was `INSUFFICIENT_EVIDENCE` with score `0` because the claim described a public-health index while its committed evidence was the BIBET README; allocation was safely `ZEROED`, and the full funded budget was withdrawn as unallocated.
+The transactions in the following older lifecycle proof belong to an earlier deployment and are retained as historical evidence only. They are not the current CA proof.
+
+### Live community-funded proof on the current CA
+
+Round `2` on `0xD9e257C0659afe75ff55c76dB76971B3f1bA2FFD` received `0.1 GEN` from each of two distinct sponsors. Both deposits, the funding lock, claim submission, close, expiry fallback, finalization, and sponsor withdrawals were accepted. Two attempts at semantic review ended in `UNDETERMINED / MAJORITY_DISAGREE`; the contract recorded `INSUFFICIENT_EVIDENCE` after its review deadline, allocated zero, and refunded both sponsors in full.
+
+- Create: `0x2e8ade43e8e8a4173e472f70970787b6e0e09dad2de9d36685975cb5f7632561`
+- Deposits: `0xb9b5439aacf90619dfa4bca8a208b2837eeae5067e9e4f63b45e44f3015a3bb5`, `0x1f53f3ca7899b068b51286a732bf3799f8b290288bf78a454a95e91e78696128`
+- Lock: `0xaecc28eb5bf5289317c4562eb12552fd6f48a4979b4db1f65d4c1373f8d6b1cd`
+- Submit claim: `0x5f5a1d77cd1be9087f4acdf862fc464ee92a5ae55d7d5b4176b2f6c1bd4458ef`
+- Expire unreviewed claim: `0x9103ac0c00a40826c1495ac450f86153d983fdc47d2eda4ca110c3d356fadecd`
+- Finalize: `0x89e87413774b2f5e8f883691c3bfb362cb5d6ddac4cdcf03290aee287c4e81a9`
+- Sponsor refunds: `0x8d10b6e7925d1ff9ce671bc1cf713b377ee07bc3c7bf9611d0a7214a28a8b5ac`, `0x4607c80fdeb4ebfcce17de8e5abbcedc2e8e8a3c60773aefc8ee53156810a859`
+- The final ledger records both `0.1 GEN` refunds withdrawn and zero outstanding reserve.
+
+The claim-review limitation is material: a positive validator verdict or contributor allocation was not demonstrated. See [`docs/community-funded-rounds.md`](docs/community-funded-rounds.md) for exact receipt links and the release gate matrix.
+
+### Historical StudioNet lifecycle proof — previous deployment only
 
 - Create: `0xd7178492602e43b5ee32227b8e66504f2cc773348a26b7d74d50765b3d37afdf`
 - Fund: `0x281fe2e17ce35e23eba0c45b4fa7f1094bc5b0ae6a51ea7fad590763a705804e`
@@ -156,9 +172,9 @@ The eight transactions below belong to the earlier deployment `0x646641bc1eDB15c
 - Historical `finalize_round`: `0x40ffa9eb89de7f7a91a0d110f3adf746f7132344ea55569884b0d9534d4da67d`
 - Historical `claim_allocation`: `0x2006b94e48390dda8527a4cb5d3e77c4e315664abb9f5b912237d99716f32839`
 
-No positive semantic-review or allocation proof is claimed here for the current `0x3F3F...` deployment until the fresh cycle below completes.
+No positive semantic-review or allocation proof is claimed here for these historical deployments. The current CA proof is listed above.
 
-The current deployment’s deterministic setup trail was accepted by StudioNet: create `0x6c2e3caac5fad7817ec6c4dcf071e3187276218b5fbc4b307ccb10d5e83d51c6`, fund `0xc8aa86855e04f1d71d7a240fc49003912a69de39a43b009c1f55929cb5c7105d`, lock `0x373e509b0906b1c1ca1a9077f3941d0ed583d69279c20e39b038186d36841d71`, submit `0x998e88e6aab13e86ad99159687d7cd9cdb93813b48faba7895e38b8423fb270b`, and close `0x5febc87f42f50ac4aab6027d6a862409e46b32729c6f280dd288d0525417e176`. The subsequent semantic review transaction `0x08152f405eccc9fda71f35958177c9c7bbb1eaeb55c2873425cb579500546c32` did not reach majority agreement, so no allocation or claim is recorded as current proof.
+An earlier deployment's deterministic setup trail was accepted by StudioNet: create `0x6c2e3caac5fad7817ec6c4dcf071e3187276218b5fbc4b307ccb10d5e83d51c6`, fund `0xc8aa86855e04f1d71d7a240fc49003912a69de39a43b009c1f55929cb5c7105d`, lock `0x373e509b0906b1c1ca1a9077f3941d0ed583d69279c20e39b038186d36841d71`, submit `0x998e88e6aab13e86ad99159687d7cd9cdb93813b48faba7895e38b8423fb270b`, and close `0x5febc87f42f50ac4aab6027d6a862409e46b32729c6f280dd288d0525417e176`. The subsequent semantic review transaction `0x08152f405eccc9fda71f35958177c9c7bbb1eaeb55c2873425cb579500546c32` did not reach majority agreement.
 
 An insufficient-evidence challenge/adjudication/withdrawal smoke cycle was also executed on the previous fresh hardened contract and passed 14 accepted transactions.
 
