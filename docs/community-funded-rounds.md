@@ -14,7 +14,7 @@ The settled accounting view exposes contributor allocations and claims, sponsor 
 
 ## Verification status
 
-The [GitHub Actions run](https://github.com/BeatyXO/Bibet/actions/runs/38129824794) passed all four jobs: 23 Direct Mode tests, 63 contract static checks, 13 allocation vectors, three isolated sponsor partition tests, six receipt cases, GenVM lint, TypeScript typecheck, ESLint, and production build. A follow-up test now covers an eligible contributor allocation and proportional sponsor refund entitlements; it is awaiting the next CI run. On this Windows machine, GenVM SDK validation and Direct Mode fixture setup could not load the pinned runner archive; the Linux CI runner successfully cached it and ran the complete suite. The repository-local GenLayer CLI reports version `0.39.1`. Contract source SHA-256 is `FC51F64186393BE43EAC159991A9DE93A622D98024E24971838428F439FA3B88` for the previous CI head; recompute for the new source after CI.
+The [latest GitHub Actions run](https://github.com/BeatyXO/Bibet/actions/runs/38131780691) passed all four jobs: 24 Direct Mode tests, 63 contract static checks, 13 allocation vectors, three isolated sponsor partition tests, six receipt cases, GenVM lint, TypeScript typecheck, ESLint, and production build. The Direct Mode suite includes both all-refund cancellation and eligible contributor allocation with proportional sponsor refund entitlements. On this Windows machine, GenVM SDK validation and Direct Mode fixture setup could not load the pinned runner archive; Linux CI successfully cached it and ran the complete suite. The repository-local GenLayer CLI reports version `0.39.1`. Contract source SHA-256: `FC51F64186393BE43EAC159991A9DE93A622D98024E24971838428F439FA3B88`.
 
 The production dependency tree reports zero npm advisories after upgrading Next.js to `16.4.0` and applying compatible lockfile fixes. Development dependencies still report advisories through the pinned GenLayer CLI and ESLint dependency tree; npm's offered force fix would downgrade the required CLI and is not applied.
 
@@ -25,11 +25,11 @@ No upgraded contract has been deployed. There are no new sponsor transactions, r
 | Gate | Status | Evidence or next action |
 |---|---|---|
 | G1 Original project preserved | PASS | Clone and branch retain original history; starting SHA above. |
-| G2 Multiple sponsors fund a round | FAIL | Distinct Direct Mode senders passed; live wallets pending. |
+| G2 Multiple sponsors fund a round | PASS | Distinct Direct Mode senders fund the same contract round; live wallet proof remains G12. |
 | G3 Immutable lock snapshot | PASS | Direct Mode rejects deposits after lock. |
 | G4 Review lifecycle preserved | PASS | Existing Direct Mode review and challenge regressions pass. |
 | G5 Contributor allocation math | PASS | 13 allocation vectors and Direct Mode regressions pass. |
-| G6 Exact sponsor refunds | FAIL | Partition vectors and all-refund Direct Mode case pass; a partial-allocation case is awaiting CI. |
+| G6 Exact sponsor refunds | PASS | Partition vectors, all-refund cancellation, and partial-allocation proportional refunds pass in Direct Mode. |
 | G7 Unauthorized/double withdrawals | FAIL | Canceled-round authorization and repeat-withdrawal checks pass; finalized refund adversarial cases remain. |
 | G8 Original behavior | PASS | Legacy Direct Mode settlement and lifecycle regressions pass. |
 | G9 Adversarial contract tests | FAIL | 23 Direct Mode tests pass; the milestone's full requested adversarial matrix remains incomplete. |
@@ -42,3 +42,11 @@ No upgraded contract has been deployed. There are no new sponsor transactions, r
 | G16 Immutable comparison | EXTERNALLY BLOCKED | Accepted baseline SHA unavailable and no final release SHA. |
 
 These statuses describe the current branch, not a completed release. No Portal submission should claim this milestone as complete yet.
+
+## Portal submission draft
+
+**Description (under 1,000 characters):**
+
+> BIBET Community-Funded Rounds extends the existing retroactive public-goods protocol so multiple wallets can sponsor one reward round. Sponsor deposits are recorded by transaction sender, repeat contributions aggregate, and the funding ledger freezes when the round opens. Existing evidence review, challenges, consensus policy, capped allocation and contributor claims remain in place. At settlement, unused GEN is divided by integer proportional shares, with leftover units assigned by largest remainder and wallet-address tie-break, so refunds conserve value and do not depend on withdrawal order. Sponsors withdraw only their own finalized refund; canceled unopened rounds return each sponsor's deposit. Legacy creator-funded rounds keep their prior behavior. Contract, Direct Mode, frontend, CI and live deployment evidence are documented separately; no live deployment or economic proof is claimed for this branch yet.
+
+**Evidence URLs:** [source commit](https://github.com/BeatyXO/Bibet/commit/123a710e67cd558ca6dbc43a8871aa036d488e0e), [CI run](https://github.com/BeatyXO/Bibet/actions/runs/38131780691), [draft pull request](https://github.com/BeatyXO/Bibet/pull/1). A deployed contract comparison, deployment transaction and sponsor transaction links cannot be supplied until the deployment and live funding gates pass.
