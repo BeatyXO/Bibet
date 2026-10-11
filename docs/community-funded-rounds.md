@@ -14,7 +14,7 @@ The settled accounting view exposes contributor allocations and claims, sponsor 
 
 ## Verification status
 
-The [GitHub Actions run](https://github.com/BeatyXO/Bibet/actions/runs/38129824794) passed all four jobs: 23 Direct Mode tests, 63 contract static checks, 13 allocation vectors, three isolated sponsor partition tests, six receipt cases, GenVM lint, TypeScript typecheck, ESLint, and production build. On this Windows machine, GenVM SDK validation and Direct Mode fixture setup could not load the pinned runner archive; the Linux CI runner successfully cached it and ran the complete suite. The repository-local GenLayer CLI reports version `0.39.1`. Contract source SHA-256 is `FC51F64186393BE43EAC159991A9DE93A622D98024E24971838428F439FA3B88`.
+The [GitHub Actions run](https://github.com/BeatyXO/Bibet/actions/runs/38129824794) passed all four jobs: 23 Direct Mode tests, 63 contract static checks, 13 allocation vectors, three isolated sponsor partition tests, six receipt cases, GenVM lint, TypeScript typecheck, ESLint, and production build. A follow-up test now covers an eligible contributor allocation and proportional sponsor refund entitlements; it is awaiting the next CI run. On this Windows machine, GenVM SDK validation and Direct Mode fixture setup could not load the pinned runner archive; the Linux CI runner successfully cached it and ran the complete suite. The repository-local GenLayer CLI reports version `0.39.1`. Contract source SHA-256 is `FC51F64186393BE43EAC159991A9DE93A622D98024E24971838428F439FA3B88` for the previous CI head; recompute for the new source after CI.
 
 The production dependency tree reports zero npm advisories after upgrading Next.js to `16.4.0` and applying compatible lockfile fixes. Development dependencies still report advisories through the pinned GenLayer CLI and ESLint dependency tree; npm's offered force fix would downgrade the required CLI and is not applied.
 
@@ -29,7 +29,7 @@ No upgraded contract has been deployed. There are no new sponsor transactions, r
 | G3 Immutable lock snapshot | PASS | Direct Mode rejects deposits after lock. |
 | G4 Review lifecycle preserved | PASS | Existing Direct Mode review and challenge regressions pass. |
 | G5 Contributor allocation math | PASS | 13 allocation vectors and Direct Mode regressions pass. |
-| G6 Exact sponsor refunds | FAIL | Partition vectors and all-refund Direct Mode case pass; a partial-allocation community round remains untested. |
+| G6 Exact sponsor refunds | FAIL | Partition vectors and all-refund Direct Mode case pass; a partial-allocation case is awaiting CI. |
 | G7 Unauthorized/double withdrawals | FAIL | Canceled-round authorization and repeat-withdrawal checks pass; finalized refund adversarial cases remain. |
 | G8 Original behavior | PASS | Legacy Direct Mode settlement and lifecycle regressions pass. |
 | G9 Adversarial contract tests | FAIL | 23 Direct Mode tests pass; the milestone's full requested adversarial matrix remains incomplete. |

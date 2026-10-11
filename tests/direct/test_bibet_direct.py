@@ -175,6 +175,38 @@ def test_community_sponsor_refunds_and_cancellation(direct_vm, bibet, accounts):
     assert totals["sponsor_refunds_withdrawn"] == "11"
 
 
+def test_community_partial_allocation_refunds_are_proportional(direct_vm, bibet, accounts):
+    direct_vm.sender = accounts[0]
+    rid = bibet.create_round(cfg(funding_model="community", title="Partially allocated community round"))
+    direct_vm.value = 1 * ONE_GEN
+    bibet.fund_round(rid)
+    direct_vm.sender = accounts[2]
+    direct_vm.value = 3 * ONE_GEN
+    bibet.fund_round(rid)
+    direct_vm.value = 0
+    direct_vm.sender = accounts[0]
+    bibet.lock_round(rid)
+    direct_vm.sender = accounts[1]
+    bibet.submit_trace_claim(rid, claim())
+    direct_vm.sender = accounts[0]
+    bibet.close_applications(rid)
+    direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": DEFAULT_EVIDENCE_BODY})
+    direct_vm.mock_llm(r".*", verdict(80))
+    bibet.request_impact_review(rid, "1")
+    assert direct_vm.run_validator() is True
+    finalize_after_challenge_deadline(direct_vm, bibet, rid)
+
+    allocation = read_json(bibet.get_allocation(rid, "1"))
+    totals = read_json(bibet.get_round_totals(rid))
+    assert int(allocation["amount"]) == ONE_GEN
+    assert int(totals["allocated_amount"]) == ONE_GEN
+    assert int(totals["sponsor_refund_entitlement"]) == 3 * ONE_GEN
+    assert int(totals["allocated_amount"]) + int(totals["sponsor_refund_entitlement"]) == 4 * ONE_GEN
+    assert int(totals["reserved_outstanding"]) == 4 * ONE_GEN
+    sponsors = [read_json(bibet.get_sponsor(rid, "0x" + sender.hex())) for sender in (accounts[0], accounts[2])]
+    assert [int(row["refund"]) for row in sponsors] == [3 * ONE_GEN // 4, 9 * ONE_GEN // 4]
+
+
 def test_full_positive_lifecycle_settlement_invariants(direct_vm, bibet, accounts):
     round_id = open_review_round(direct_vm, bibet, accounts)
     direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": DEFAULT_EVIDENCE_BODY})
