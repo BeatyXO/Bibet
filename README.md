@@ -82,12 +82,12 @@ The frontend has separate app pages:
 
 - `/` landing page, no fake stats
 - `/rounds` live round summaries read from `get_round_count()` and `get_round_summary()`
-- `/rounds/[id]` live afterledger read plus fund, lock/open, submit/update claim, close applications, request review, challenge/respond/adjudicate, finalise, claim allocation, withdraw unallocated, and permissionless advance controls
+- `/rounds/[id]` live afterledger read plus fund, lock/open, submit/update claim, close applications, request review, challenge/respond/adjudicate, finalise, claim allocation, cancel unopened rounds, withdraw sponsor refunds or creator unallocated funds, and permissionless advance controls
 - `/start` create-round flow with first-class application/review/challenge/finalisation deadlines
 - `/how` protocol explanation
 - `/audit` audit/explorer surface
 
-The frontend source uses injected EIP-1193 wallets for writes, restores an already-authorized account on page load without prompting, listens for account/network changes, and blocks writes on the wrong chain. The wrong-network notice can request a chain switch (and add the chain if the wallet does not know it yet); the wallet still requires the user to approve that request. `npm run test:wallet` checks restoration, disconnected-account, and wrong-network states. The reload-restoration fix is in the current source update and will appear in production after GitHub accepts and deploys it.
+The frontend uses injected EIP-1193 wallets for writes, restores an already-authorized account on page load without prompting, listens for account/network changes, and blocks writes on the wrong chain. The wrong-network notice can request a chain switch (and add the chain if the wallet does not know it yet); the wallet still requires the user to approve that request. `npm run test:wallet` checks restoration, disconnected-account, and wrong-network states. Production waits for finalized receipts on writes and pending-transaction recovery; a signed StudioNet funding write and its cancellation/refund lifecycle are linked below.
 
 Production frontend: [bibet-eight.vercel.app](https://bibet-eight.vercel.app/). Frontend changes merge through GitHub so the repository's connected hosting integration can build and deploy them.
 
@@ -120,7 +120,7 @@ npm run verify:schema
 
 Latest results:
 
-- GenVM lint: contract-lint passed in the [mainline release CI run](https://github.com/BeatyXO/Bibet/actions/runs/38173614663); the final verification PR adds no contract-source changes
+- GenVM lint, frontend, regression, and Direct Mode: all four jobs passed in [mainline CI run 38176515930](https://github.com/BeatyXO/Bibet/actions/runs/38176515930)
 - Deployed schema: verified on `0xD9e257C0659afe75ff55c76dB76971B3f1bA2FFD`; protocol version `community-funded-v1`
 - TypeScript: passed
 - ESLint: passed
@@ -147,7 +147,7 @@ Round `2` on `0xD9e257C0659afe75ff55c76dB76971B3f1bA2FFD` received `0.1 GEN` fro
 
 The claim-review limitation is material: a positive validator verdict or contributor allocation was not demonstrated. See [`docs/community-funded-rounds.md`](docs/community-funded-rounds.md) for exact receipt links and the release gate matrix.
 
-The production Chrome create-round check also exposed a frontend receipt false-failure: the SDK waiter defaulted to `ACCEPTED` and returned before finalization. [Transaction `0x0f4755...0e898f71`](https://explorer-studio.genlayer.com/transactions/0x0f4755cdbf39d01157751aaaf2eafe576c55695002258d7ae4096f630e898f71) is finalized with successful execution and returned round `3`. The frontend now waits explicitly for `FINALIZED`; the signed funding-button confirmation remains pending production deployment and is tracked in the milestone verification record.
+Production Chrome verification created round `3` and then exercised the real funding, cancel, and sponsor refund controls. Create transaction [`0x0f4755...0e898f71`](https://explorer-studio.genlayer.com/transactions/0x0f4755cdbf39d01157751aaaf2eafe576c55695002258d7ae4096f630e898f71) finalized with successful execution. The `0.001 GEN` funding transaction [`0xbcef98...50ff9253`](https://explorer-studio.genlayer.com/transactions/0xbcef98217c726fc95cdb2b30c71fb4b48a42f4b860b38c3b5660fc4850ff9253), cancellation [`0x53b65e...377442b`](https://explorer-studio.genlayer.com/transactions/0x53b65ecaf5434de44e2cf2cb4d1741f49524919bcd658aa4e59d14358377442b), and sponsor refund [`0x5605e3...772aa86`](https://explorer-studio.genlayer.com/transactions/0x5605e3cd3f7e0da4f7d433332ec9810b02ea4559b0821fc50d0c27708772aa86) all finalized with successful GenVM execution. After each refresh, the production afterledger showed the corresponding state; after the refund, `contract_balance` and `reserved_outstanding` were zero. The receipt handling and cancel control changes are included in the merged release. The separate live positive-verdict limitation is documented below.
 
 ### Historical StudioNet lifecycle proof — previous deployment only
 
