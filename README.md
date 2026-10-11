@@ -1,5 +1,9 @@
 # BIBET
 
+## Community-Funded Rounds development branch
+
+This branch adds a community funding model while retaining creator-funded rounds. Sponsors fund a shared budget, and after finalization each sponsor can independently withdraw a deterministic proportional share of unused funds. See [the milestone implementation record](docs/community-funded-rounds.md) for the accounting design, test results, and release gates. The canonical deployment below still runs the original creator-funded contract; this branch is not yet deployed.
+
 BIBET is a retroactive public-goods funding protocol for completed work. Contributors submit public evidence, GenLayer validators review credibility/attribution/impact, and deterministic contract logic allocates a funded GEN budget.
 
 The product idea is unchanged: BIBET funds what already proved useful. GenLayer is used only where semantic review is needed; accounting, caps, state transitions, and settlement are deterministic contract logic.
@@ -83,7 +87,7 @@ The frontend has separate app pages:
 - `/how` protocol explanation
 - `/audit` audit/explorer surface
 
-Injected EIP-1193 wallets are the primary production path. The generated browser wallet is retained for StudioNet/dev convenience and is warned as local browser storage, not custody-grade storage.
+The frontend uses injected EIP-1193 wallets for writes and blocks writes on the wrong chain.
 
 ## Environment
 

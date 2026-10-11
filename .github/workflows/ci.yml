@@ -59,6 +59,12 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - run: npm ci
+      - run: python -m pip install pytest
       - run: npm run test:allocations
       - run: npm run test:static
+      - run: npx tsx tests/direct/receipt.test.ts
+      - run: PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/direct/test_refund_partition.py -q -p no:cacheprovider

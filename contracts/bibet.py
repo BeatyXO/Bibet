@@ -27,6 +27,7 @@ class BibetProtocol(gl.Contract):
     MAX_CHALLENGE = 500
     MAX_RESPONSE = 800
     MAX_CLAIMS = 80
+    MAX_SPONSORS = 80
     MAX_EVIDENCE_URLS = 5
     MAX_CHALLENGES = 80
     SCORE_TOLERANCE = 5
@@ -182,11 +183,18 @@ class BibetProtocol(gl.Contract):
             "policy_version": self._bounded_text(config.get("policy_version", "bibet-studionet-v1"), 4, 60, "EXPECTED_BAD_POLICY"),
             "max_share_bps": max_share_bps,
             "planned_budget_gen": str(config.get("planned_budget_gen", "0"))[:40],
+            "funding_model": self._funding_model(config),
             "application_close_after": application_close_after,
             "review_deadline_at": review_deadline_at,
             "challenge_deadline_at": challenge_deadline_at,
             "finalization_deadline_at": finalization_deadline_at,
         }
+
+    def _funding_model(self, config):
+        model = config.get("funding_model", "creator")
+        if model not in ("creator", "community"):
+            raise gl.vm.UserError("EXPECTED_FUNDING_MODEL")
+        return model
 
     def _fetch_evidence(self, evidence_items):
         evidence = []
@@ -368,15 +376,45 @@ class BibetProtocol(gl.Contract):
         claimed = sum(int(item.get("amount", "0")) for item in data.get("allocations", []) if item.get("status") == "CLAIMED")
         unallocated = int(data.get("unallocated_budget", "0"))
         withdrawn = int(data.get("unallocated_withdrawn", "0"))
+        community = data.get("config", {}).get("funding_model", "creator") == "community"
+        refunds = sum(int(row.get("refund", "0")) for row in data.get("sponsors", [])) if community else unallocated
+        refunds_withdrawn = sum(int(row.get("withdrawn", "0")) for row in data.get("sponsors", [])) if community else withdrawn
+        unsettled = int(data.get("budget", "0")) if data.get("status") not in ("FINALIZED", "CANCELED") else 0
         return {
             "funded_budget": data.get("budget", "0"),
             "allocated_amount": str(allocated),
             "claimed_amount": str(claimed),
             "unallocated_amount": str(unallocated),
             "unallocated_withdrawn": str(withdrawn),
-            "refundable_amount": str(max(0, unallocated - withdrawn)),
+            "refundable_amount": str(max(0, refunds - refunds_withdrawn)),
+            "sponsor_count": str(len(data.get("sponsors", []))) if community else "0",
+            "sponsor_refund_entitlement": str(refunds),
+            "sponsor_refunds_withdrawn": str(refunds_withdrawn),
+            "contributor_claimable": str(allocated - claimed),
+            "unsettled_funding_escrow": str(unsettled),
+            "reserved_outstanding": str(unsettled + allocated - claimed + refunds - refunds_withdrawn),
             "contract_balance": str(int(self.balance)),
         }
+
+    def _settle_sponsors(self, data, remainder: int):
+        if data.get("config", {}).get("funding_model", "creator") != "community":
+            return
+        sponsors = data.get("sponsors", [])
+        total = int(data["budget"])
+        if total <= 0 or sum(int(row["amount"]) for row in sponsors) != total:
+            raise gl.vm.UserError("EXPECTED_SPONSOR_BALANCE")
+        assigned = 0
+        ranking = []
+        for row in sponsors:
+            numerator = remainder * int(row["amount"])
+            amount, fraction = divmod(numerator, total)
+            row["refund"] = str(amount)
+            row["withdrawn"] = "0"
+            assigned += amount
+            ranking.append((fraction, row["address"], row))
+        ranking.sort(key=lambda item: (-item[0], item[1]))
+        for _, _, row in ranking[:remainder - assigned]:
+            row["refund"] = str(int(row["refund"]) + 1)
 
     def _allocations(self, data):
         budget = int(data.get("budget", "0"))
@@ -431,17 +469,28 @@ class BibetProtocol(gl.Contract):
         config = self._canonical_config(round_config_json)
         self.round_counter = u256(self.round_counter + 1)
         round_id = str(self.round_counter)
-        self.rounds[round_id] = self._save({"id": round_id, "title": config["title"], "creator": self._sender(), "status": "DRAFT", "budget": "0", "unallocated_budget": "0", "unallocated_withdrawn": "0", "claims": [], "verdicts": {}, "verdict_history": {}, "challenges": [], "allocations": [], "settlements": [], "created_at": self._now(), "config": config})
+        self.rounds[round_id] = self._save({"id": round_id, "title": config["title"], "creator": self._sender(), "status": "DRAFT", "budget": "0", "unallocated_budget": "0", "unallocated_withdrawn": "0", "sponsors": [], "claims": [], "verdicts": {}, "verdict_history": {}, "challenges": [], "allocations": [], "settlements": [], "created_at": self._now(), "config": config})
         return round_id
 
     @gl.public.write.payable
     def fund_round(self, round_id: str):
         data = self._round(round_id)
-        self._require_creator(data)
+        community = data.get("config", {}).get("funding_model", "creator") == "community"
+        if not community:
+            self._require_creator(data)
         if data["status"] not in ("DRAFT", "FUNDING"):
             raise gl.vm.UserError("EXPECTED_FUNDING_CLOSED")
         if gl.message.value <= u256(0):
             raise gl.vm.UserError("EXPECTED_DEPOSIT_REQUIRED")
+        if community:
+            sponsors = data.setdefault("sponsors", [])
+            sponsor = next((row for row in sponsors if row["address"] == self._sender()), None)
+            if sponsor is None:
+                if len(sponsors) >= self.MAX_SPONSORS:
+                    raise gl.vm.UserError("EXPECTED_SPONSOR_LIMIT")
+                sponsor = {"address": self._sender(), "amount": "0", "refund": "0", "withdrawn": "0"}
+                sponsors.append(sponsor)
+            sponsor["amount"] = str(int(sponsor["amount"]) + int(gl.message.value))
         data["budget"] = str(int(data["budget"]) + int(gl.message.value))
         data["status"] = "FUNDING"
         self.rounds[round_id] = self._save(data)
@@ -459,6 +508,10 @@ class BibetProtocol(gl.Contract):
         if any(not str(config.get(key, "")) for key in required_deadlines):
             raise gl.vm.UserError("EXPECTED_COMPLETE_DEADLINES")
         data["status"] = "OPEN"
+        if data.get("config", {}).get("funding_model", "creator") == "community":
+            if sum(int(row["amount"]) for row in data.get("sponsors", [])) != int(data["budget"]):
+                raise gl.vm.UserError("EXPECTED_SPONSOR_BALANCE")
+            data["funding_snapshot"] = data["budget"]
         data["locked_at"] = self._now()
         self.rounds[round_id] = self._save(data)
 
@@ -503,7 +556,7 @@ class BibetProtocol(gl.Contract):
         self._require_creator(data)
         if data["status"] != "OPEN":
             raise gl.vm.UserError("EXPECTED_APPLICATIONS_OPEN")
-        if len(data["claims"]) == 0:
+        if len(data["claims"]) == 0 and data.get("config", {}).get("funding_model", "creator") != "community":
             raise gl.vm.UserError("EXPECTED_CLAIMS_REQUIRED")
         data["status"] = "REVIEW"
         data["applications_closed_at"] = self._now()
@@ -671,6 +724,7 @@ class BibetProtocol(gl.Contract):
         allocations, unallocated = self._allocations(data)
         data["allocations"] = allocations
         data["unallocated_budget"] = str(unallocated)
+        self._settle_sponsors(data, unallocated)
         data["status"] = "FINALIZED"
         data["finalized_at"] = self._now()
         self.rounds[round_id] = self._save(data)
@@ -702,7 +756,7 @@ class BibetProtocol(gl.Contract):
             deadline = str(config.get("application_close_after", ""))
             if not deadline or now < deadline:
                 raise gl.vm.UserError("EXPECTED_APPLICATION_DEADLINE")
-            if len(data.get("claims", [])) == 0:
+            if len(data.get("claims", [])) == 0 and data.get("config", {}).get("funding_model", "creator") != "community":
                 raise gl.vm.UserError("EXPECTED_CLAIMS_REQUIRED")
             data["status"] = "REVIEW"
             data["applications_closed_at"] = now
@@ -738,6 +792,7 @@ class BibetProtocol(gl.Contract):
             allocations, unallocated = self._allocations(data)
             data["allocations"] = allocations
             data["unallocated_budget"] = str(unallocated)
+            self._settle_sponsors(data, unallocated)
             data["status"] = "FINALIZED"
             data["finalized_at"] = now
             data["advanced_by"] = self._sender()
@@ -769,6 +824,8 @@ class BibetProtocol(gl.Contract):
     @gl.public.write
     def withdraw_unallocated_budget(self, round_id: str):
         data = self._round(round_id)
+        if data.get("config", {}).get("funding_model", "creator") == "community":
+            raise gl.vm.UserError("EXPECTED_SPONSOR_WITHDRAWAL")
         self._require_creator(data)
         if data["status"] != "FINALIZED":
             raise gl.vm.UserError("EXPECTED_FINALIZED_ROUND")
@@ -787,6 +844,14 @@ class BibetProtocol(gl.Contract):
         if data["status"] not in ("DRAFT", "FUNDING"):
             raise gl.vm.UserError("EXPECTED_CANCELABLE_ROUND")
         amount = int(data.get("budget", "0"))
+        if data.get("config", {}).get("funding_model", "creator") == "community":
+            data["status"] = "CANCELED"
+            data["unallocated_budget"] = str(amount)
+            for row in data.get("sponsors", []):
+                row["refund"] = row["amount"]
+            data["canceled_at"] = self._now()
+            self.rounds[round_id] = self._save(data)
+            return
         data["status"] = "CANCELED"
         data["budget"] = "0"
         data["unallocated_budget"] = "0"
@@ -795,6 +860,39 @@ class BibetProtocol(gl.Contract):
         self.rounds[round_id] = self._save(data)
         if amount > 0:
             _Recipient(Address(data["creator"])).emit_transfer(value=u256(amount))
+
+    @gl.public.write
+    def withdraw_sponsor_refund(self, round_id: str):
+        data = self._round(round_id)
+        if data.get("config", {}).get("funding_model", "creator") != "community":
+            raise gl.vm.UserError("EXPECTED_COMMUNITY_ROUND")
+        if data["status"] not in ("FINALIZED", "CANCELED"):
+            raise gl.vm.UserError("EXPECTED_SETTLED_ROUND")
+        row = next((item for item in data.get("sponsors", []) if item["address"] == self._sender()), None)
+        if row is None:
+            raise gl.vm.UserError("EXPECTED_SPONSOR_ONLY")
+        amount = int(row["refund"]) - int(row["withdrawn"])
+        if amount <= 0:
+            raise gl.vm.UserError("EXPECTED_REFUND_AVAILABLE")
+        row["withdrawn"] = row["refund"]
+        data.setdefault("settlements", []).append({"type": "SPONSOR_REFUND", "to": self._sender(), "amount": str(amount), "at": self._now()})
+        self.rounds[round_id] = self._save(data)
+        _Recipient(Address(self._sender())).emit_transfer(value=u256(amount))
+
+    @gl.public.view
+    def list_sponsors(self, round_id: str, offset: str, limit: str) -> str:
+        data = self._round(round_id)
+        sponsors = data.get("sponsors", []) if data.get("config", {}).get("funding_model", "creator") == "community" else []
+        start = max(0, int(offset))
+        size = min(20, max(1, int(limit)))
+        return self._save({"total": len(sponsors), "offset": start, "sponsors": sponsors[start:start + size]})
+
+    @gl.public.view
+    def get_sponsor(self, round_id: str, address: str) -> str:
+        data = self._round(round_id)
+        if data.get("config", {}).get("funding_model", "creator") != "community":
+            return self._save({})
+        return self._save(next((row for row in data.get("sponsors", []) if row["address"] == str(address).lower()), {}))
 
     @gl.public.view
     def get_round_count(self) -> str:
@@ -838,7 +936,7 @@ class BibetProtocol(gl.Contract):
     @gl.public.view
     def get_afterledger(self, round_id: str) -> str:
         data = self._round(round_id)
-        return self._save({"round": {"id": data["id"], "title": data["title"], "creator": data["creator"], "status": data["status"], "budget": data["budget"], "config": data["config"]}, "totals": self._round_totals_dict(data), "claims": data.get("claims", []), "verdicts": data.get("verdicts", {}), "verdict_history": data.get("verdict_history", {}), "challenges": data.get("challenges", []), "allocations": data.get("allocations", []), "settlements": data.get("settlements", [])})
+        return self._save({"round": {"id": data["id"], "title": data["title"], "creator": data["creator"], "status": data["status"], "budget": data["budget"], "funding_snapshot": data.get("funding_snapshot", ""), "config": data["config"]}, "totals": self._round_totals_dict(data), "sponsors": data.get("sponsors", [])[:20], "claims": data.get("claims", []), "verdicts": data.get("verdicts", {}), "verdict_history": data.get("verdict_history", {}), "challenges": data.get("challenges", []), "allocations": data.get("allocations", []), "settlements": data.get("settlements", [])})
 
     @gl.public.view
     def get_round_totals(self, round_id: str) -> str:

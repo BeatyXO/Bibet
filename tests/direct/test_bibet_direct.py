@@ -121,6 +121,60 @@ def finalize_after_challenge_deadline(vm, contract, round_id="1"):
     contract.finalize_round(round_id)
 
 
+def test_community_sponsor_refunds_and_cancellation(direct_vm, bibet, accounts):
+    direct_vm.sender = accounts[0]
+    rid = bibet.create_round(cfg(funding_model="community"))
+    for sender, amount in ((accounts[0], 3), (accounts[1], 2), (accounts[2], 5), (accounts[1], 1)):
+        direct_vm.sender = sender
+        direct_vm.value = amount
+        bibet.fund_round(rid)
+    direct_vm.value = 0
+    ledger = read_json(bibet.get_afterledger(rid))
+    assert ledger["round"]["budget"] == "11"
+    assert [int(row["amount"]) for row in ledger["sponsors"]] == [3, 3, 5]
+    direct_vm.sender = accounts[3]
+    must_revert("EXPECTED_SETTLED_ROUND", bibet.withdraw_sponsor_refund, rid)
+    direct_vm.sender = accounts[0]
+    bibet.lock_round(rid)
+    direct_vm.sender = accounts[3]
+    direct_vm.value = 1
+    must_revert("EXPECTED_FUNDING_CLOSED", bibet.fund_round, rid)
+    direct_vm.value = 0
+    must_revert("EXPECTED_CREATOR_ONLY", bibet.cancel_unopened_round, rid)
+    direct_vm.sender = accounts[0]
+    bibet.close_applications(rid)
+    finalize_after_challenge_deadline(direct_vm, bibet, rid)
+    totals = read_json(bibet.get_round_totals(rid))
+    assert totals["sponsor_refund_entitlement"] == "11"
+    assert totals["reserved_outstanding"] == "11"
+    must_revert("EXPECTED_SPONSOR_WITHDRAWAL", bibet.withdraw_unallocated_budget, rid)
+    direct_vm.sender = accounts[1]
+    bibet.withdraw_sponsor_refund(rid)
+    assert read_json(bibet.get_round_totals(rid))["reserved_outstanding"] == "8"
+
+    # A second round cancels before opening; each contributor independently owns its deposit.
+    direct_vm.sender = accounts[0]
+    canceled = bibet.create_round(cfg(funding_model="community", title="Cancelable community round"))
+    direct_vm.sender = accounts[1]
+    direct_vm.value = 7
+    bibet.fund_round(canceled)
+    direct_vm.sender = accounts[2]
+    direct_vm.value = 4
+    bibet.fund_round(canceled)
+    direct_vm.value = 0
+    direct_vm.sender = accounts[0]
+    bibet.cancel_unopened_round(canceled)
+    must_revert("EXPECTED_SPONSOR_ONLY", bibet.withdraw_sponsor_refund, canceled)
+    for sender, amount in ((accounts[1], 7), (accounts[2], 4)):
+        direct_vm.sender = sender
+        bibet.withdraw_sponsor_refund(canceled)
+        row = read_json(bibet.get_sponsor(canceled, sender.as_hex.lower()))
+        assert int(row["withdrawn"]) == amount
+        must_revert("EXPECTED_REFUND_AVAILABLE", bibet.withdraw_sponsor_refund, canceled)
+    totals = read_json(bibet.get_round_totals(canceled))
+    assert totals["sponsor_refunds_withdrawn"] == "11"
+
+
 def test_full_positive_lifecycle_settlement_invariants(direct_vm, bibet, accounts):
     round_id = open_review_round(direct_vm, bibet, accounts)
     direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": DEFAULT_EVIDENCE_BODY})

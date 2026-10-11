@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowUpRight, ExternalLink, RefreshCw, Send } from "lucide-react";
-import { createAccount, createClient } from "genlayer-js";
+import { createClient } from "genlayer-js";
 import { BIBET_CHAIN, BIBET_CONTRACT, explorerContract, explorerTx, readClient } from "../lib/config";
-import { getGeneratedKey } from "../lib/wallet";
+import { ensureInjectedChain } from "../lib/wallet";
+import { finalizedExecution } from "../lib/receipt";
 import { useWallet } from "./wallet-provider";
 
 type Afterledger = {
@@ -14,7 +15,9 @@ type Afterledger = {
     creator: string;
     status: string;
     budget: string;
+    funding_snapshot?: string;
     config?: {
+      funding_model?: string;
       application_close_after?: string;
       review_deadline_at?: string;
       challenge_deadline_at?: string;
@@ -27,6 +30,7 @@ type Afterledger = {
   challenges: Array<Record<string, unknown>>;
   allocations: Array<Record<string, unknown>>;
   settlements: Array<Record<string, unknown>>;
+  sponsors?: Array<{ address: string; amount: string; refund: string; withdrawn: string }>;
 };
 
 async function readAfterledger(roundId: string) {
@@ -49,6 +53,10 @@ export function RoundDetail({ roundId }: { roundId: string }) {
   const [challengeEvidenceJson, setChallengeEvidenceJson] = useState(JSON.stringify({ evidence_manifest: [] }, null, 2));
   const [challengeResponse, setChallengeResponse] = useState("The submitted public evidence and trace URLs demonstrate the completed work and attribution.");
   const [nowMs, setNowMs] = useState(0);
+  const pending = useRef(false);
+  const [sponsorPage, setSponsorPage] = useState(0);
+  const [sponsorRows, setSponsorRows] = useState<Array<{ address: string; amount: string; refund: string; withdrawn: string }>>([]);
+  const [walletSponsor, setWalletSponsor] = useState<{ address: string; amount: string; refund: string; withdrawn: string } | null>(null);
 
   const refresh = useCallback(async () => {
     setState("Loading afterledger...");
@@ -62,10 +70,49 @@ export function RoundDetail({ roundId }: { roundId: string }) {
   }, [roundId]);
 
   useEffect(() => {
+    let active = true;
+    readClient.readContract({ address: BIBET_CONTRACT, functionName: "list_sponsors", args: [roundId, String(sponsorPage * 20), "20"] })
+      .then(raw => { const page = typeof raw === "string" ? JSON.parse(raw) : raw; if (active) setSponsorRows(page.sponsors || []); })
+      .catch(() => { if (active) setSponsorRows([]); });
+    return () => { active = false; };
+  }, [roundId, sponsorPage, ledger]);
+
+  useEffect(() => {
+    if (!address) return;
+    let active = true;
+    readClient.readContract({ address: BIBET_CONTRACT, functionName: "get_sponsor", args: [roundId, address] })
+      .then(raw => { const row = typeof raw === "string" ? JSON.parse(raw) : raw; if (active) setWalletSponsor(row.address ? row : null); })
+      .catch(() => { if (active) setWalletSponsor(null); });
+    return () => { active = false; };
+  }, [roundId, address, ledger]);
+
+  useEffect(() => {
     queueMicrotask(() => {
       refresh();
     });
   }, [refresh]);
+
+  useEffect(() => {
+    const key = `bibet.pending.round.${roundId}`;
+    const hash = window.localStorage.getItem(key);
+    if (!hash) return;
+    if (!/^0x[a-fA-F0-9]{64}$/.test(hash)) { window.localStorage.removeItem(key); return; }
+    pending.current = true;
+    let active = true;
+    queueMicrotask(() => { if (active) setActionState(`Recovering pending transaction ${hash}...`); });
+    readClient.waitForTransactionReceipt({ hash: hash as never, interval: 5000, retries: 90 })
+      .then(receipt => {
+        if (!active) return;
+        const outcome = finalizedExecution(receipt);
+        setActionState(`Recovered transaction: ${outcome.message}`);
+        setLastTx(hash);
+        if (["FINALIZED", "7"].includes(String(receipt.statusName ?? receipt.status))) window.localStorage.removeItem(key);
+        if (outcome.ok) void refresh();
+      })
+      .catch(error => { if (active) setActionState(error instanceof Error ? error.message : "Pending transaction recovery failed."); })
+      .finally(() => { pending.current = false; });
+    return () => { active = false; };
+  }, [roundId, refresh]);
 
   useEffect(() => {
     const updateClock = () => setNowMs(Date.now());
@@ -87,6 +134,12 @@ export function RoundDetail({ roundId }: { roundId: string }) {
   }
 
   async function sendWrite(functionName: string, args: unknown[] = [], value = 0n) {
+    if (pending.current) return;
+    if (window.localStorage.getItem(`bibet.pending.round.${roundId}`)) {
+      setActionState("A transaction for this round is still pending. Refresh to recover its result before sending another.");
+      return;
+    }
+    pending.current = true;
     setActionState(null);
     setLastTx(null);
     try {
@@ -95,35 +148,30 @@ export function RoundDetail({ roundId }: { roundId: string }) {
         throw new Error("Connect a wallet before sending protocol writes.");
       }
       setActionState(`Preparing ${functionName}...`);
-      if (mode === "generated") {
-        const key = getGeneratedKey();
-        if (!key) throw new Error("Browser wallet key was not found.");
-        const account = createAccount(key as `0x${string}`);
-        const client = createClient({ chain: BIBET_CHAIN, account });
-        const hash = await client.writeContract({ account, address: BIBET_CONTRACT, functionName, args: args as never[], value, consensusMaxRotations: 3 });
-        setLastTx(hash);
-        setActionState(`Waiting for ${functionName} consensus...`);
-        const receipt = await client.waitForTransactionReceipt({ hash, interval: 5000, retries: 90 });
-        setActionState(`${functionName} accepted. Status ${receipt.statusName ?? receipt.status}, result ${receipt.resultName ?? receipt.result}.`);
-        await refresh();
-        return;
-      }
+      await ensureInjectedChain(BIBET_CHAIN);
       const client = createClient({ chain: BIBET_CHAIN, account: address as `0x${string}`, provider: window.ethereum as never });
       const hash = await client.writeContract({ address: BIBET_CONTRACT, functionName, args: args as never[], value, consensusMaxRotations: 3 });
       setLastTx(hash);
+      window.localStorage.setItem(`bibet.pending.round.${roundId}`, hash);
       setActionState(`Waiting for ${functionName} consensus...`);
       const receipt = await client.waitForTransactionReceipt({ hash, interval: 5000, retries: 90 });
-      setActionState(`${functionName} accepted. Status ${receipt.statusName ?? receipt.status}, result ${receipt.resultName ?? receipt.result}.`);
-      await refresh();
+      const outcome = finalizedExecution(receipt);
+      setActionState(`${functionName}: ${outcome.message}`);
+      if (["FINALIZED", "7"].includes(String(receipt.statusName ?? receipt.status))) window.localStorage.removeItem(`bibet.pending.round.${roundId}`);
+      if (outcome.ok) await refresh();
     } catch (error) {
       setActionState(error instanceof Error ? error.message : `Could not execute ${functionName}.`);
+    } finally {
+      pending.current = false;
     }
   }
 
   function fundValue() {
-    const normalized = Number(fundAmount);
-    if (!Number.isFinite(normalized) || normalized <= 0) throw new Error("Funding amount must be positive.");
-    return BigInt(Math.floor(normalized * 1_000_000)) * 1_000_000_000_000n;
+    const match = /^(\d+)(?:\.(\d{1,18}))?$/.exec(fundAmount.trim());
+    if (!match) throw new Error("Enter a positive GEN amount with at most 18 decimal places.");
+    const amount = BigInt(match[1]) * 10n ** 18n + BigInt((match[2] || "").padEnd(18, "0"));
+    if (amount <= 0n) throw new Error("Funding amount must be positive.");
+    return amount;
   }
 
   function fundRound() {
@@ -135,10 +183,13 @@ export function RoundDetail({ roundId }: { roundId: string }) {
   }
 
   const status = ledger.round.status;
+  const community = ledger.round.config?.funding_model === "community";
+  const mySponsor = walletSponsor;
+  const myRefund = mySponsor ? BigInt(mySponsor.refund) - BigInt(mySponsor.withdrawn) : 0n;
   const isCreator = Boolean(address && ledger.round.creator.toLowerCase() === address.toLowerCase());
   const hasWallet = Boolean(address && mode !== "none");
   const deadlinePassed = (value?: string) => (value && nowMs ? Date.parse(value) <= nowMs : false);
-  const canFund = hasWallet && isCreator && (status === "DRAFT" || status === "FUNDING");
+  const canFund = hasWallet && (community || isCreator) && (status === "DRAFT" || status === "FUNDING");
   const canLock = hasWallet && isCreator && (status === "DRAFT" || status === "FUNDING");
   const canSubmit = hasWallet && status === "OPEN";
   const canClose = hasWallet && isCreator && status === "OPEN";
@@ -155,6 +206,7 @@ export function RoundDetail({ roundId }: { roundId: string }) {
         <div className="roundHead"><span>ROUND {ledger.round.id}</span><span>{ledger.round.status}</span></div>
         <h2>{ledger.round.title}</h2>
         <p>Creator <code>{ledger.round.creator}</code></p>
+        <p>{community ? "Community funded: unused funds belong proportionally to sponsors." : "Creator funded: unused funds return to the creator."}</p>
         <a className="textLink" href={explorerContract()} target="_blank">Open contract <ExternalLink size={14} /></a>
       </section>
       <section className="detailCard">
@@ -175,12 +227,13 @@ export function RoundDetail({ roundId }: { roundId: string }) {
         <p>Use these controls to run the real contract flow from this round: fund, lock/open, submit or update claims, review, challenge, adjudicate, finalise, and settle.</p>
         <div className="actionGrid">
           <label>Fund amount in GEN<input value={fundAmount} onChange={(event) => setFundAmount(event.target.value)} /></label>
-          <button className="primary" disabled={!canFund} title={walletHint || "Creator only before locking."} onClick={fundRound}><Send size={14} />Fund</button>
+          <button className="primary" disabled={!canFund} title={walletHint || "Funding closes when the creator locks the round."} onClick={fundRound}><Send size={14} />Fund</button>
+          <p>Exact deposit: {(() => { try { return `${fundValue()} wei`; } catch { return "Invalid amount"; } })()}</p>
           <button className="secondaryAction" disabled={!canLock} title={walletHint || "Creator only while draft/funding."} onClick={() => sendWrite("lock_round", [roundId])}>Lock / open</button>
           <button className="secondaryAction" disabled={!canClose} title={walletHint || "Creator only while open."} onClick={() => sendWrite("close_applications", [roundId])}>Close applications</button>
           <button className="secondaryAction" disabled={!hasWallet || status === "FINALIZED" || status === "CANCELLED"} title={walletHint || "Moves open/review rounds when configured deadlines allow it."} onClick={() => sendWrite("permissionless_advance", [roundId])}>Permissionless advance</button>
           <button className="secondaryAction" disabled={!canFinalize} title={walletHint || "Creator only after challenge deadline and all challenges are resolved."} onClick={() => sendWrite("finalize_round", [roundId])}>Finalise</button>
-          <button className="secondaryAction" disabled={!canSettle || !isCreator} title={walletHint || "Creator only after finalization."} onClick={() => sendWrite("withdraw_unallocated_budget", [roundId])}>Withdraw unallocated</button>
+          {community ? <button className="secondaryAction" disabled={!hasWallet || !((status === "FINALIZED" || status === "CANCELED") && myRefund > 0n)} onClick={() => sendWrite("withdraw_sponsor_refund", [roundId])}>Withdraw my refund ({myRefund.toString()} wei)</button> : <button className="secondaryAction" disabled={!canSettle || !isCreator} title={walletHint || "Creator only after finalization."} onClick={() => sendWrite("withdraw_unallocated_budget", [roundId])}>Withdraw unallocated</button>}
         </div>
         <div className="actionGrid two">
           <label>Claim id<input value={claimId} onChange={(event) => setClaimId(event.target.value)} /></label>
@@ -208,6 +261,7 @@ export function RoundDetail({ roundId }: { roundId: string }) {
         {!address && <button className="primary" onClick={openWallet}>Connect wallet <ArrowUpRight size={14} /></button>}
         {actionState && <div className="txState">{actionState}{lastTx && <a href={explorerTx(lastTx)} target="_blank">View transaction <ExternalLink size={12} /></a>}</div>}
       </section>
+      {community && <section className="detailCard wide"><h3>Sponsor ledger</h3><p>{ledger.totals.sponsor_count || "0"} sponsors · Funding {status === "DRAFT" || status === "FUNDING" ? "open" : "closed"} · Your contribution {mySponsor?.amount || "0"} wei · Your refund entitlement {mySponsor?.refund || "0"} wei</p><dl>{sponsorRows.map(row => <div key={row.address}><dt><code>{row.address}</code></dt><dd>{row.amount} wei funded · {row.refund} wei refund · {row.withdrawn} wei withdrawn</dd></div>)}</dl><button className="secondaryAction" disabled={sponsorPage === 0} onClick={() => setSponsorPage(page => page - 1)}>Previous</button><button className="secondaryAction" disabled={(sponsorPage + 1) * 20 >= Number(ledger.totals.sponsor_count || 0)} onClick={() => setSponsorPage(page => page + 1)}>Next</button></section>}
       <section className="detailCard wide">
         <h3>Raw afterledger</h3>
         <pre>{JSON.stringify(ledger, null, 2)}</pre>
