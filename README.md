@@ -120,12 +120,12 @@ npm run verify:schema
 
 Latest results:
 
-- GenVM lint: basic lint passed locally; `genvm-lint check` is wired in CI but this Windows cache returned `Failed to load SDK` after lint passed
+- GenVM lint: contract-lint passed in [the latest mainline CI run](https://github.com/BeatyXO/Bibet/actions/runs/38173614663)
 - Deployed schema: verified on `0xD9e257C0659afe75ff55c76dB76971B3f1bA2FFD`; protocol version `community-funded-v1`
 - TypeScript: passed
 - ESLint: passed
 - Next build: passed
-- Direct Mode pytest: 25 passed locally with the repository's pinned GenVM version; the linked GitHub Actions run predates the final adversarial test additions (24 passed there)
+- Direct Mode pytest: 25 passed locally with the repository's pinned GenVM version; the latest mainline GitHub Actions run passed the direct-mode job
 - Supplementary allocation vectors: 13 passed, 0 failed
 - Supplementary static checks: 62 passed, 0 failed
 - StudioNet community funding/refunds: two distinct sponsors deposited `0.1 GEN` each, locked the ledger, then withdrew exact refunds after the live review missed consensus and the contract applied its expiry fallback. See the proof transactions below.
