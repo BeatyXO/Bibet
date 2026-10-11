@@ -120,7 +120,7 @@ npm run verify:schema
 
 Latest results:
 
-- GenVM lint, frontend, regression, and Direct Mode: all four jobs passed in [mainline CI run 38176515930](https://github.com/BeatyXO/Bibet/actions/runs/38176515930)
+- GenVM lint, frontend, regression, and Direct Mode: all four jobs passed for the receipt correction in [PR CI run 38177748000](https://github.com/BeatyXO/Bibet/actions/runs/38177748000)
 - Deployed schema: verified on `0xD9e257C0659afe75ff55c76dB76971B3f1bA2FFD`; protocol version `community-funded-v1`
 - TypeScript: passed
 - ESLint: passed
@@ -148,6 +148,8 @@ Round `2` on `0xD9e257C0659afe75ff55c76dB76971B3f1bA2FFD` received `0.1 GEN` fro
 The claim-review limitation is material: a positive validator verdict or contributor allocation was not demonstrated. See [`docs/community-funded-rounds.md`](docs/community-funded-rounds.md) for exact receipt links and the release gate matrix.
 
 Production Chrome verification created round `3` and then exercised the real funding, cancel, and sponsor refund controls. Create transaction [`0x0f4755...0e898f71`](https://explorer-studio.genlayer.com/transactions/0x0f4755cdbf39d01157751aaaf2eafe576c55695002258d7ae4096f630e898f71) finalized with successful execution. The `0.001 GEN` funding transaction [`0xbcef98...50ff9253`](https://explorer-studio.genlayer.com/transactions/0xbcef98217c726fc95cdb2b30c71fb4b48a42f4b860b38c3b5660fc4850ff9253), cancellation [`0x53b65e...377442b`](https://explorer-studio.genlayer.com/transactions/0x53b65ecaf5434de44e2cf2cb4d1741f49524919bcd658aa4e59d14358377442b), and sponsor refund [`0x5605e3...772aa86`](https://explorer-studio.genlayer.com/transactions/0x5605e3cd3f7e0da4f7d433332ec9810b02ea4559b0821fc50d0c27708772aa86) all finalized with successful GenVM execution. After each refresh, the production afterledger showed the corresponding state; after the refund, `contract_balance` and `reserved_outstanding` were zero. The receipt handling and cancel control changes are included in the merged release. The separate live positive-verdict limitation is documented below.
+
+The live write check also exposed a second receipt-display mismatch: the Studionet RPC’s leader receipt uses `execution_result: "SUCCESS"`/`"ERROR"`, while the frontend only recognized the SDK enum labels. The corrected parser handles both formats. Its 8-case regression passes, and the exact live refund transaction was reread from StudioNet (`FINALIZED`, leader execution `SUCCESS`) and parsed as “Finalized with successful execution.” The correction is in merged commit [`4232574`](https://github.com/BeatyXO/Bibet/commit/4232574914f1563dbdf87c32a049c6ebaff139d2); GitHub’s Vercel integration reports the production deployment complete.
 
 ### Historical StudioNet lifecycle proof — previous deployment only
 
