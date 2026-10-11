@@ -2,6 +2,17 @@ import type { Chain } from "viem";
 
 export function hasInjectedWallet() { return typeof window !== "undefined" && !!window.ethereum; }
 export function shortAddress(address: string) { return `${address.slice(0, 6)}...${address.slice(-4)}`; }
+export async function getInjectedWalletState(chain: Chain) {
+  if (!window.ethereum) return { address: null, onExpectedChain: null };
+  const [accounts, chainId] = await Promise.all([
+    window.ethereum.request({ method: "eth_accounts" }),
+    window.ethereum.request({ method: "eth_chainId" }),
+  ]);
+  return {
+    address: Array.isArray(accounts) && typeof accounts[0] === "string" ? accounts[0] : null,
+    onExpectedChain: typeof chainId === "string" && chainId.toLowerCase() === `0x${chain.id.toString(16)}`,
+  };
+}
 export async function switchInjectedChain(chain: Chain) {
   if (!window.ethereum) throw new Error("No injected EIP-1193 wallet detected.");
   const chainId = `0x${chain.id.toString(16)}`;

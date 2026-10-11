@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Copy, Wallet, X } from "lucide-react";
-import { connectInjectedWallet, hasInjectedWallet, shortAddress, switchInjectedChain } from "../lib/wallet";
+import { connectInjectedWallet, getInjectedWalletState, hasInjectedWallet, shortAddress, switchInjectedChain } from "../lib/wallet";
 import { BIBET_CHAIN } from "../lib/config";
 
 type WalletContextValue = { address: string | null; mode: "none" | "injected"; openWallet: () => void };
@@ -33,7 +33,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   }
   useEffect(() => {
     const provider = window.ethereum;
-    if (!provider?.on) return;
+    if (!provider) return;
+    let active = true;
     const onAccounts = (value: unknown) => setAddress(Array.isArray(value) && typeof value[0] === "string" ? value[0] : null);
     const onChain = (value: unknown) => {
       if (typeof value !== "string" || value.toLowerCase() !== `0x${BIBET_CHAIN.id.toString(16)}`) {
@@ -45,8 +46,22 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         setWalletError(null);
       }).catch(() => setWalletError("Network switched. Reopen your wallet to reconnect."));
     };
-    provider.on("accountsChanged", onAccounts); provider.on("chainChanged", onChain);
-    return () => { provider.removeListener?.("accountsChanged", onAccounts); provider.removeListener?.("chainChanged", onChain); };
+    provider.on?.("accountsChanged", onAccounts); provider.on?.("chainChanged", onChain);
+    // Restore an already-authorized account after reload without prompting for
+    // access again. eth_accounts is read-only and returns [] when not connected.
+    void getInjectedWalletState(BIBET_CHAIN)
+      .then(({ address: authorizedAddress, onExpectedChain }) => {
+        if (!active) return;
+        setAddress(authorizedAddress);
+        if (onExpectedChain === false) setWalletError(`Wrong network. Switch your wallet to ${BIBET_CHAIN.name} (chain ${BIBET_CHAIN.id}).`);
+        else if (onExpectedChain === true) setWalletError(null);
+      })
+      .catch(() => { /* Wallet may be locked or unavailable; the user can connect manually. */ });
+    return () => {
+      active = false;
+      provider.removeListener?.("accountsChanged", onAccounts);
+      provider.removeListener?.("chainChanged", onChain);
+    };
   }, []);
   const value = useMemo(() => ({ address, mode: address ? "injected" as const : "none" as const, openWallet: () => setWalletOpen(true) }), [address]);
   return <WalletContext.Provider value={value}>{children}{walletOpen && <div className="overlay" onClick={() => setWalletOpen(false)}><div className="walletModal" onClick={event => event.stopPropagation()}>
