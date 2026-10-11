@@ -1,8 +1,8 @@
 # BIBET
 
-## Community-Funded Rounds development branch
+## Community-Funded Rounds
 
-This branch adds a community funding model while retaining creator-funded rounds. Sponsors fund a shared budget, and after finalization each sponsor can independently withdraw a deterministic proportional share of unused funds. See [the milestone implementation record](docs/community-funded-rounds.md) for the accounting design, test results, live proof, and remaining release gates.
+The production app and StudioNet contract support both creator-funded and community-funded rounds. Sponsors fund a shared budget, and after finalization each sponsor can independently withdraw a deterministic proportional share of unused funds. See [the milestone implementation record](docs/community-funded-rounds.md) for the accounting design, tests, live proof, frontend release status, and remaining limitations.
 
 BIBET is a retroactive public-goods funding protocol for completed work. Contributors submit public evidence, GenLayer validators review credibility/attribution/impact, and deterministic contract logic allocates a funded GEN budget.
 
@@ -87,7 +87,9 @@ The frontend has separate app pages:
 - `/how` protocol explanation
 - `/audit` audit/explorer surface
 
-The frontend uses injected EIP-1193 wallets for writes and blocks writes on the wrong chain.
+The frontend source uses injected EIP-1193 wallets for writes, restores an already-authorized account on page load without prompting, listens for account/network changes, and blocks writes on the wrong chain. The wrong-network notice can request a chain switch (and add the chain if the wallet does not know it yet); the wallet still requires the user to approve that request. `npm run test:wallet` checks restoration, disconnected-account, and wrong-network states. The reload-restoration fix is in the current source update and will appear in production after GitHub accepts and deploys it.
+
+Production frontend: [bibet-eight.vercel.app](https://bibet-eight.vercel.app/). Frontend changes merge through GitHub so the repository's connected hosting integration can build and deploy them.
 
 ## Environment
 
@@ -103,6 +105,7 @@ NEXT_PUBLIC_GENLAYER_EXPLORER_URL=https://explorer-studio.genlayer.com
 npm install
 npm run typecheck
 npm run lint
+npm run test:wallet
 npm run test:direct
 npm run test:allocations
 npm run build
@@ -180,7 +183,7 @@ An insufficient-evidence challenge/adjudication/withdrawal smoke cycle was also 
 
 ## CI
 
-GitHub Actions runs Python setup, `python -m pip install -r requirements.txt`, `npm ci`, `npm run typecheck`, `npm run lint`, `npm run lint:contract`, `npm run test:direct`, `npm run test:allocations`, and `npm run build`.
+GitHub Actions runs Python setup, `python -m pip install -r requirements.txt`, `npm ci`, `npm run typecheck`, `npm run lint`, `npm run test:wallet`, `npm run lint:contract`, `npm run test:direct`, `npm run test:allocations`, and `npm run build`.
 
 StudioNet live verification is intentionally not part of default PR CI because it requires funded test keys.
 
@@ -188,3 +191,4 @@ StudioNet live verification is intentionally not part of default PR CI because i
 
 - StudioNet live verification is intentionally not part of default PR CI because it requires funded test keys.
 - The frontend exposes every core lifecycle write, but it is still a compact protocol console rather than a fully guided consumer UX.
+- Wallet write actions and network changes remain user-approved in the injected wallet; automated UI checks do not sign transactions.

@@ -34,7 +34,7 @@ Round `2` on the deployed CA was funded by two distinct addresses with `0.1 GEN`
 
 The final ledger shows two sponsors, each deposited/refunded/withdrew `0.1 GEN`; `funded_budget = sponsor_refunds_withdrawn = 0.2 GEN`, with zero allocation and zero outstanding reserve. The repeatable scripts are `scripts/studionet-community-proof.ts` and `scripts/studionet-settle-proof.ts`.
 
-The frontend default now points to the new CA. No direct Vercel action was taken, per the owner's GitHub-only direction; GitHub's existing integration may create a preview, which is not a production deployment.
+The frontend default points to the new CA. The production frontend is live at [bibet-eight.vercel.app](https://bibet-eight.vercel.app/); releases are delivered through the repository's GitHub integration, with no direct Vercel dashboard changes.
 
 ## Release gates
 
@@ -49,20 +49,26 @@ The frontend default now points to the new CA. No direct Vercel action was taken
 | G7 Unauthorized/double withdrawals | PASS | Direct Mode proves pre-settlement denial, outsider denial, creator/sponsor ownership, independent sponsor claims, and repeated-withdrawal denial for canceled and finalized refunds. |
 | G8 Original behavior | PASS | Legacy Direct Mode settlement and lifecycle regressions pass. |
 | G9 Adversarial contract tests | PARTIAL | 25 Direct Mode tests pass, including sponsor-cap/pagination and refund entitlement state checks. Full requested matrix and mutation testing are not complete; Direct Mode does not yet simulate a recipient transfer failure to prove rollback under that failure mode. |
-| G10 Frontend checks | PASS | Typecheck, ESLint, build and receipt cases passed locally. |
+| G10 Frontend checks | PASS | Typecheck, ESLint, build, wallet startup-state tests and receipt cases passed locally; production routes, live ledger/detail, form controls, wallet modal, and safe lifecycle-control states were manually checked in Chrome. Wallet write transactions were not submitted as part of UI QA. |
 | G11 Contract deployment | PASS | Deployed CA and on-chain source parity verified; protocol version is `community-funded-v1`. |
 | G12 Live multi-sponsor lifecycle | PASS WITH LIMITATION | Two sponsors funded/locked; review attempt timed out by majority disagreement, then contract expiry fallback finalized. No positive allocation proof. |
 | G13 Live refunds | PASS | Both sponsors withdrew exact `0.1 GEN` refunds; ledger liabilities are zero. |
-| G14 Production frontend | NOT DEPLOYED | Owner requested GitHub-only delivery; no direct Vercel action was authorized. |
+| G14 Production frontend | PASS | Production is live at [bibet-eight.vercel.app](https://bibet-eight.vercel.app/) and uses the community-funded CA. Changes are delivered through GitHub integration, without direct Vercel dashboard changes. |
 | G15 GitHub CI | PASS | All four jobs passed in the linked GitHub Actions run. |
 | G16 Immutable comparison | PASS | Owner-confirmed baseline `de47a890b5d489c122dcbf7b58208c211148dafa`; immutable comparison: [baseline to release commit](https://github.com/BeatyXO/Bibet/compare/de47a890b5d489c122dcbf7b58208c211148dafa...f51d08069aae35a4e06abc13e99782495ce65901). |
 
-The deployment, funded refund path, and deterministic release gates are evidenced. Do not claim a positive validator impact decision: the live semantic review did not reach consensus and the fallback verdict was insufficient evidence. The broad adversarial suite is not yet the complete requested matrix; accepted-baseline comparison remains blocked by the missing accepted SHA. Production frontend hosting was not changed.
+The deployment, funded refund path, production frontend, and deterministic release gates are evidenced. Do not claim a positive validator impact decision: the live semantic review did not reach consensus and the fallback verdict was insufficient evidence. The broad adversarial suite is not yet the complete requested matrix; accepted-baseline comparison remains blocked by the missing accepted SHA.
+
+## Frontend wallet and manual QA
+
+The production UI was manually checked in Chrome for route navigation (`/`, `/rounds`, `/rounds/1`, `/rounds/2`, `/start`, `/how`, `/audit`), live ledger refresh and detail links, wallet modal open/close, form funding-model selection, GEN amount precision/validation, and the lifecycle controls' state/disabled reasons. The red wrong-network notice is an action that asks the injected wallet to switch to StudioNet, adding the chain if needed. Its EIP-1193 fallback was verified with a mocked provider; the live wallet was already on StudioNet during browser QA, so the red state could not be reproduced without changing the user's wallet network.
+
+The wallet startup fix initializes state from read-only `eth_accounts` and `eth_chainId` requests after page load, so an already-authorized account is restored after refresh and a wrong-network notice is shown immediately. `npm run test:wallet` covers connected, disconnected, and wrong-network startup states. The production browser QA predates this fix; verify refresh restoration on production after this GitHub change is merged and deployed. No write transaction was initiated or signed during frontend QA. Wallet write actions still require the user to review and approve them in the injected wallet.
 
 ## Portal submission draft
 
 **Description (under 1,000 characters):**
 
-> BIBET Community-Funded Rounds extends the retroactive public-goods protocol so multiple wallets can sponsor one reward round. Sponsor deposits are sender-attributed and frozen at lock; unused GEN is divided by integer proportional shares, with largest-remainder refunds and wallet-address tie-breaks. The upgraded CA is deployed on StudioNet, and two independent sponsors funded, locked, and recovered their full deposits after the live evidence review missed consensus and the contract recorded its insufficient-evidence expiry fallback. The full refund ledger and CI evidence are linked in the implementation record. No positive impact verdict or production frontend rollout is claimed.
+> BIBET Community-Funded Rounds extends the retroactive public-goods protocol so multiple wallets can sponsor one reward round. Sponsor deposits are sender-attributed and frozen at lock; unused GEN is divided by integer proportional shares, with largest-remainder refunds and wallet-address tie-breaks. The upgraded CA is deployed on StudioNet, and two independent sponsors funded, locked, and recovered their full deposits after the live evidence review missed consensus and the contract recorded its insufficient-evidence expiry fallback. The production frontend is live at bibet-eight.vercel.app and uses the upgraded CA. The full refund ledger and CI evidence are linked in the implementation record. No positive impact verdict is claimed.
 
 **Evidence URLs:** [release commit](https://github.com/BeatyXO/Bibet/commit/f51d08069aae35a4e06abc13e99782495ce65901), [CI run](https://github.com/BeatyXO/Bibet/actions/runs/38168854341), [draft pull request](https://github.com/BeatyXO/Bibet/pull/1), [baseline comparison](https://github.com/BeatyXO/Bibet/compare/de47a890b5d489c122dcbf7b58208c211148dafa...f51d08069aae35a4e06abc13e99782495ce65901), [deployed CA](https://explorer-studio.genlayer.com/contracts/0xD9e257C0659afe75ff55c76dB76971B3f1bA2FFD), and [live proof transactions](https://explorer-studio.genlayer.com/transactions/0x89e87413774b2f5e8f883691c3bfb362cb5d6ddac4cdcf03290aee287c4e81a9).
