@@ -2,6 +2,26 @@ import type { Chain } from "viem";
 
 export function hasInjectedWallet() { return typeof window !== "undefined" && !!window.ethereum; }
 export function shortAddress(address: string) { return `${address.slice(0, 6)}...${address.slice(-4)}`; }
+export async function switchInjectedChain(chain: Chain) {
+  if (!window.ethereum) throw new Error("No injected EIP-1193 wallet detected.");
+  const chainId = `0x${chain.id.toString(16)}`;
+  try {
+    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId }] });
+  } catch (error) {
+    if (typeof error !== "object" || error === null || !("code" in error) || error.code !== 4902) throw error;
+    await window.ethereum.request({
+      method: "wallet_addEthereumChain",
+      params: [{
+        chainId,
+        chainName: chain.name,
+        rpcUrls: chain.rpcUrls.default.http,
+        nativeCurrency: chain.nativeCurrency,
+        ...(chain.blockExplorers?.default?.url ? { blockExplorerUrls: [chain.blockExplorers.default.url] } : {}),
+      }],
+    });
+    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId }] });
+  }
+}
 export async function ensureInjectedChain(chain: Chain) {
   if (!window.ethereum) throw new Error("No injected wallet detected.");
   const current = await window.ethereum.request({ method: "eth_chainId" });
