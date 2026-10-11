@@ -238,6 +238,16 @@ def test_community_partial_allocation_refunds_are_proportional(direct_vm, bibet,
     assert totals["reserved_outstanding"] == str(ONE_GEN)
     assert totals["contributor_claimable"] == str(ONE_GEN)
 
+    # The contributor withdraws the partial allocation; all funded value is now settled.
+    direct_vm.sender = accounts[1]
+    bibet.claim_allocation(rid, "1")
+    must_revert("EXPECTED_UNCLAIMED_ALLOCATION", bibet.claim_allocation, rid, "1")
+    totals = read_json(bibet.get_round_totals(rid))
+    assert totals["claimed_amount"] == str(ONE_GEN)
+    assert totals["sponsor_refunds_withdrawn"] == str(3 * ONE_GEN)
+    assert totals["reserved_outstanding"] == "0"
+    assert int(totals["claimed_amount"]) + int(totals["sponsor_refunds_withdrawn"]) == 4 * ONE_GEN
+
 
 def test_community_max_sponsors_and_bounded_pagination(direct_vm, bibet, accounts):
     direct_vm.sender = accounts[0]

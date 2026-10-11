@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowUpRight, ExternalLink, RefreshCw, Send } from "lucide-react";
 import { createClient } from "genlayer-js";
+import { TransactionStatus } from "genlayer-js/types";
 import { BIBET_CHAIN, BIBET_CONTRACT, explorerContract, explorerTx, readClient } from "../lib/config";
 import { ensureInjectedChain } from "../lib/wallet";
 import { finalizedExecution } from "../lib/receipt";
@@ -100,7 +101,7 @@ export function RoundDetail({ roundId }: { roundId: string }) {
     pending.current = true;
     let active = true;
     queueMicrotask(() => { if (active) setActionState(`Recovering pending transaction ${hash}...`); });
-    readClient.waitForTransactionReceipt({ hash: hash as never, interval: 5000, retries: 90 })
+    readClient.waitForTransactionReceipt({ hash: hash as never, status: TransactionStatus.FINALIZED, interval: 5000, retries: 90 })
       .then(receipt => {
         if (!active) return;
         const outcome = finalizedExecution(receipt);
@@ -154,7 +155,7 @@ export function RoundDetail({ roundId }: { roundId: string }) {
       setLastTx(hash);
       window.localStorage.setItem(`bibet.pending.round.${roundId}`, hash);
       setActionState(`Waiting for ${functionName} consensus...`);
-      const receipt = await client.waitForTransactionReceipt({ hash, interval: 5000, retries: 90 });
+      const receipt = await client.waitForTransactionReceipt({ hash, status: TransactionStatus.FINALIZED, interval: 5000, retries: 90 });
       const outcome = finalizedExecution(receipt);
       setActionState(`${functionName}: ${outcome.message}`);
       if (["FINALIZED", "7"].includes(String(receipt.statusName ?? receipt.status))) window.localStorage.removeItem(`bibet.pending.round.${roundId}`);
@@ -191,6 +192,7 @@ export function RoundDetail({ roundId }: { roundId: string }) {
   const deadlinePassed = (value?: string) => (value && nowMs ? Date.parse(value) <= nowMs : false);
   const canFund = hasWallet && (community || isCreator) && (status === "DRAFT" || status === "FUNDING");
   const canLock = hasWallet && isCreator && (status === "DRAFT" || status === "FUNDING");
+  const canCancel = hasWallet && isCreator && (status === "DRAFT" || status === "FUNDING");
   const canSubmit = hasWallet && status === "OPEN";
   const canClose = hasWallet && isCreator && status === "OPEN";
   const canReview = hasWallet && status === "REVIEW" && !deadlinePassed(ledger.round.config?.review_deadline_at);
@@ -230,6 +232,7 @@ export function RoundDetail({ roundId }: { roundId: string }) {
           <button className="primary" disabled={!canFund} title={walletHint || "Funding closes when the creator locks the round."} onClick={fundRound}><Send size={14} />Fund</button>
           <p>Exact deposit: {(() => { try { return `${fundValue()} wei`; } catch { return "Invalid amount"; } })()}</p>
           <button className="secondaryAction" disabled={!canLock} title={walletHint || "Creator only while draft/funding."} onClick={() => sendWrite("lock_round", [roundId])}>Lock / open</button>
+          <button className="secondaryAction" disabled={!canCancel} title={walletHint || "Creator only before opening; community sponsors can withdraw their deposits after cancellation."} onClick={() => sendWrite("cancel_unopened_round", [roundId])}>Cancel unopened round</button>
           <button className="secondaryAction" disabled={!canClose} title={walletHint || "Creator only while open."} onClick={() => sendWrite("close_applications", [roundId])}>Close applications</button>
           <button className="secondaryAction" disabled={!hasWallet || status === "FINALIZED" || status === "CANCELLED"} title={walletHint || "Moves open/review rounds when configured deadlines allow it."} onClick={() => sendWrite("permissionless_advance", [roundId])}>Permissionless advance</button>
           <button className="secondaryAction" disabled={!canFinalize} title={walletHint || "Creator only after challenge deadline and all challenges are resolved."} onClick={() => sendWrite("finalize_round", [roundId])}>Finalise</button>
