@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Copy, Wallet, X } from "lucide-react";
-import { connectInjectedWallet, hasInjectedWallet, shortAddress } from "../lib/wallet";
+import { connectInjectedWallet, hasInjectedWallet, shortAddress, switchInjectedChain } from "../lib/wallet";
 import { BIBET_CHAIN } from "../lib/config";
 
 type WalletContextValue = { address: string | null; mode: "none" | "injected"; openWallet: () => void };
@@ -13,17 +13,38 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [address, setAddress] = useState<string | null>(null);
   const [walletError, setWalletError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [switchingNetwork, setSwitchingNetwork] = useState(false);
   async function connect() {
     setWalletError(null); setConnecting(true);
     try { setAddress(await connectInjectedWallet(BIBET_CHAIN)); setWalletOpen(false); }
     catch (error) { setWalletError(error instanceof Error ? error.message : "Wallet connection failed."); }
     finally { setConnecting(false); }
   }
+  async function switchNetwork() {
+    setWalletError(null); setSwitchingNetwork(true);
+    try {
+      await switchInjectedChain(BIBET_CHAIN);
+      const accounts = await window.ethereum?.request({ method: "eth_accounts" });
+      setAddress(Array.isArray(accounts) && typeof accounts[0] === "string" ? accounts[0] : null);
+      setWalletError(null);
+    } catch (error) {
+      setWalletError(error instanceof Error ? error.message : "Could not switch wallet network.");
+    } finally { setSwitchingNetwork(false); }
+  }
   useEffect(() => {
     const provider = window.ethereum;
     if (!provider?.on) return;
     const onAccounts = (value: unknown) => setAddress(Array.isArray(value) && typeof value[0] === "string" ? value[0] : null);
-    const onChain = () => { setAddress(null); setWalletError("Network changed. Reconnect on Studionet."); };
+    const onChain = (value: unknown) => {
+      if (typeof value !== "string" || value.toLowerCase() !== `0x${BIBET_CHAIN.id.toString(16)}`) {
+        setWalletError(`Wrong network. Switch your wallet to ${BIBET_CHAIN.name} (chain ${BIBET_CHAIN.id}).`);
+        return;
+      }
+      void provider.request({ method: "eth_accounts" }).then(accounts => {
+        setAddress(Array.isArray(accounts) && typeof accounts[0] === "string" ? accounts[0] : null);
+        setWalletError(null);
+      }).catch(() => setWalletError("Network switched. Reopen your wallet to reconnect."));
+    };
     provider.on("accountsChanged", onAccounts); provider.on("chainChanged", onChain);
     return () => { provider.removeListener?.("accountsChanged", onAccounts); provider.removeListener?.("chainChanged", onChain); };
   }, []);
@@ -34,6 +55,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     <p className="modalIntro">Use an injected EIP-1193 wallet on GenLayer Studionet.</p>
     <button className="walletOption" onClick={connect} disabled={connecting || !hasInjectedWallet()}><Wallet size={19} /><span><b>Injected wallet</b><small>{hasInjectedWallet() ? "Connect wallet" : "No injected wallet detected"}</small></span></button>
     {address && <div className="walletState"><span>{shortAddress(address)}</span><button onClick={() => navigator.clipboard?.writeText(address)} aria-label="Copy wallet address"><Copy size={14} /></button><button onClick={() => { setAddress(null); setWalletOpen(false); }}>Disconnect</button></div>}
-    {walletError && <div className="walletError">{walletError}</div>}
+    {walletError && (walletError.startsWith("Wrong network.")
+      ? <button className="walletError walletErrorAction" onClick={switchNetwork} disabled={switchingNetwork || !hasInjectedWallet()} aria-label={`Switch wallet to ${BIBET_CHAIN.name}`}>
+          {switchingNetwork ? "Waiting for wallet…" : <>{walletError} <span className="walletErrorHint">Click to switch network</span></>}
+        </button>
+      : <div className="walletError" role="status">{walletError}</div>)}
   </div></div>}</WalletContext.Provider>;
 }
