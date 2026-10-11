@@ -2,7 +2,7 @@
 
 ## Provenance
 
-The clone began at `de47a890b5d489c122dcbf7b58208c211148dafa` on `main` from `https://github.com/BeatyXO/Bibet`. The accepted project baseline SHA is not identified by the available repository records; the starting SHA must not be treated as an accepted-baseline SHA. The previous creator-funded contract remains at `0x3F3F320e9767c6Ac9b8c418c3d7FB416B740c4Cf` (deployment transaction `0xc592015876993c82f5a352fb681d720ed6aa5e302a6634fa25e7d561bf7e06e8`); its state does not migrate. The community-funded contract is now deployed on StudioNet at [`0xD9e257C0659afe75ff55c76dB76971B3f1bA2FFD`](https://explorer-studio.genlayer.com/contracts/0xD9e257C0659afe75ff55c76dB76971B3f1bA2FFD), transaction [`0xd0a577a6dc95600181b0199c3936969188d1b3e9354c4254bc01769be592e81e`](https://explorer-studio.genlayer.com/transactions/0xd0a577a6dc95600181b0199c3936969188d1b3e9354c4254bc01769be592e81e). Its `get_protocol_version()` returns `community-funded-v1`; fetched on-chain code matched the deployed source.
+The clone began at `de47a890b5d489c122dcbf7b58208c211148dafa` on `main` from `https://github.com/BeatyXO/Bibet`. The owner confirmed this pre-work commit as the accepted baseline. The immutable local comparison is `de47a890b5d489c122dcbf7b58208c211148dafa...HEAD`; it covers the complete implementation branch. The previous creator-funded contract remains at `0x3F3F320e9767c6Ac9b8c418c3d7FB416B740c4Cf` (deployment transaction `0xc592015876993c82f5a352fb681d720ed6aa5e302a6634fa25e7d561bf7e06e8`); its state does not migrate. The community-funded contract is now deployed on StudioNet at [`0xD9e257C0659afe75ff55c76dB76971B3f1bA2FFD`](https://explorer-studio.genlayer.com/contracts/0xD9e257C0659afe75ff55c76dB76971B3f1bA2FFD), transaction [`0xd0a577a6dc95600181b0199c3936969188d1b3e9354c4254bc01769be592e81e`](https://explorer-studio.genlayer.com/transactions/0xd0a577a6dc95600181b0199c3936969188d1b3e9354c4254bc01769be592e81e). Its `get_protocol_version()` returns `community-funded-v1`; fetched on-chain code matched the deployed source.
 
 ## Architecture
 
@@ -55,7 +55,7 @@ The frontend default now points to the new CA. No direct Vercel action was taken
 | G13 Live refunds | PASS | Both sponsors withdrew exact `0.1 GEN` refunds; ledger liabilities are zero. |
 | G14 Production frontend | NOT DEPLOYED | Owner requested GitHub-only delivery; no direct Vercel action was authorized. |
 | G15 GitHub CI | PASS | All four jobs passed in the linked GitHub Actions run. |
-| G16 Immutable comparison | EXTERNALLY BLOCKED | Accepted baseline SHA unavailable. |
+| G16 Immutable comparison | PASS | Owner-confirmed baseline `de47a890b5d489c122dcbf7b58208c211148dafa`; full local comparison range is `de47a890b5d489c122dcbf7b58208c211148dafa...HEAD`. GitHub compare URL becomes available when the branch is pushed. |
 
 The deployment, funded refund path, and deterministic release gates are evidenced. Do not claim a positive validator impact decision: the live semantic review did not reach consensus and the fallback verdict was insufficient evidence. The broad adversarial suite is not yet the complete requested matrix; accepted-baseline comparison remains blocked by the missing accepted SHA. Production frontend hosting was not changed.
 
