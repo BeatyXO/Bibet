@@ -67,4 +67,4 @@ jobs:
       - run: npm run test:allocations
       - run: npm run test:static
       - run: npx tsx tests/direct/receipt.test.ts
-      - run: PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/direct/test_refund_partition.py -q -p no:cacheprovider
+      - run: PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/unit/test_refund_partition.py -q -p no:cacheprovider

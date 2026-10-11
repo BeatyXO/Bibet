@@ -168,7 +168,7 @@ def test_community_sponsor_refunds_and_cancellation(direct_vm, bibet, accounts):
     for sender, amount in ((accounts[1], 7), (accounts[2], 4)):
         direct_vm.sender = sender
         bibet.withdraw_sponsor_refund(canceled)
-        row = read_json(bibet.get_sponsor(canceled, sender.as_hex.lower()))
+        row = read_json(bibet.get_sponsor(canceled, "0x" + sender.hex()))
         assert int(row["withdrawn"]) == amount
         must_revert("EXPECTED_REFUND_AVAILABLE", bibet.withdraw_sponsor_refund, canceled)
     totals = read_json(bibet.get_round_totals(canceled))
@@ -318,10 +318,12 @@ def test_insufficient_evidence_zeroes_allocation(direct_vm, bibet, accounts):
 
 
 def test_challenge_after_deadline_fails(direct_vm, bibet, accounts):
-    round_id = open_review_round(direct_vm, bibet, accounts, cfg_json=cfg(review_deadline_at="", challenge_deadline_at="2026-08-30T11:00:00Z"))
+    warp(direct_vm, "2026-08-30T10:00:00Z")
+    round_id = open_review_round(direct_vm, bibet, accounts, cfg_json=cfg(review_deadline_at="2026-08-30T10:30:00Z", challenge_deadline_at="2026-08-30T11:00:00Z"))
     direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": DEFAULT_EVIDENCE_BODY})
     direct_vm.mock_llm(r".*", verdict(70))
     bibet.request_impact_review(round_id, "1")
+    warp(direct_vm, "2026-08-30T12:00:00Z")
     direct_vm.sender = accounts[2]
     must_revert("EXPECTED_CHALLENGE_DEADLINE", bibet.open_challenge, round_id, "1", "evidence_quality", "Late challenge cannot grief finalization.", challenge_payload("https://challenge.example/a"))
 
@@ -528,7 +530,7 @@ def test_challenge_exactly_at_deadline_fails(direct_vm, bibet, accounts):
         direct_vm,
         bibet,
         accounts,
-        cfg_json=cfg(review_deadline_at="", challenge_deadline_at="2026-08-30T12:00:00Z"),
+        cfg_json=cfg(review_deadline_at="2026-08-30T12:00:00Z", challenge_deadline_at="2026-08-30T12:00:00Z"),
     )
     direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": "good evidence"})
     direct_vm.mock_llm(r".*", verdict(70))
