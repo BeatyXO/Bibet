@@ -14,7 +14,7 @@ The settled accounting view exposes contributor allocations and claims, sponsor 
 
 ## Verification status
 
-The [latest GitHub Actions run](https://github.com/BeatyXO/Bibet/actions/runs/38131911214) passed all four jobs: 24 Direct Mode tests, contract lint, frontend typecheck/ESLint/build, and regression checks (13 allocation vectors, static checks, receipt cases, and refund partition tests). Local TypeScript, ESLint, and production build also pass with the new CA default. The repository-local GenLayer CLI is `0.39.1`. Deployed contract source SHA-256: `FC51F64186393BE43EAC159991A9DE93A622D98024E24971838428F439FA3B88`.
+The [latest GitHub Actions run](https://github.com/BeatyXO/Bibet/actions/runs/38131911214) passed all four jobs on the earlier pushed revision: 24 Direct Mode tests, contract lint, frontend typecheck/ESLint/build, and regression checks (13 allocation vectors, static checks, receipt cases, and refund partition tests). The current local revision adds adversarial sponsor-withdrawal and 80-sponsor pagination coverage; the full Direct Mode suite now passes locally with the pinned GenVM version (25 passed). Local TypeScript, ESLint, and production build pass with the new CA default. The repository-local GenLayer CLI is `0.39.1`. Deployed contract source SHA-256: `FC51F64186393BE43EAC159991A9DE93A622D98024E24971838428F439FA3B88`.
 
 The production dependency tree reports zero npm advisories. Development dependencies still report advisories through the pinned GenLayer CLI and ESLint dependency tree; npm's offered force fix would downgrade the required CLI and is not applied.
 
@@ -46,9 +46,9 @@ The frontend default now points to the new CA. No direct Vercel action was taken
 | G4 Review lifecycle preserved | PASS | Existing Direct Mode review and challenge regressions pass. |
 | G5 Contributor allocation math | PASS | 13 allocation vectors and Direct Mode regressions pass. |
 | G6 Exact sponsor refunds | PASS | Partition vectors, all-refund cancellation, and partial-allocation proportional refunds pass in Direct Mode. |
-| G7 Unauthorized/double withdrawals | FAIL | Canceled-round authorization and repeat-withdrawal checks pass; finalized refund adversarial cases remain. |
+| G7 Unauthorized/double withdrawals | PASS | Direct Mode proves pre-settlement denial, outsider denial, creator/sponsor ownership, independent sponsor claims, and repeated-withdrawal denial for canceled and finalized refunds. |
 | G8 Original behavior | PASS | Legacy Direct Mode settlement and lifecycle regressions pass. |
-| G9 Adversarial contract tests | FAIL | 24 Direct Mode tests pass; the milestone's full requested adversarial matrix remains incomplete. |
+| G9 Adversarial contract tests | PARTIAL | 25 Direct Mode tests pass, including sponsor-cap/pagination and refund entitlement state checks. Full requested matrix and mutation testing are not complete; Direct Mode does not yet simulate a recipient transfer failure to prove rollback under that failure mode. |
 | G10 Frontend checks | PASS | Typecheck, ESLint, build and receipt cases passed locally. |
 | G11 Contract deployment | PASS | Deployed CA and on-chain source parity verified; protocol version is `community-funded-v1`. |
 | G12 Live multi-sponsor lifecycle | PASS WITH LIMITATION | Two sponsors funded/locked; review attempt timed out by majority disagreement, then contract expiry fallback finalized. No positive allocation proof. |
@@ -57,7 +57,7 @@ The frontend default now points to the new CA. No direct Vercel action was taken
 | G15 GitHub CI | PASS | All four jobs passed in the linked GitHub Actions run. |
 | G16 Immutable comparison | EXTERNALLY BLOCKED | Accepted baseline SHA unavailable. |
 
-The deployment, funded refund path, and deterministic release gates are evidenced. Do not claim a positive validator impact decision: the live semantic review did not reach consensus and the fallback verdict was insufficient evidence. The adversarial withdrawal matrix and accepted-baseline comparison remain incomplete; production frontend hosting was not changed.
+The deployment, funded refund path, and deterministic release gates are evidenced. Do not claim a positive validator impact decision: the live semantic review did not reach consensus and the fallback verdict was insufficient evidence. The broad adversarial suite is not yet the complete requested matrix; accepted-baseline comparison remains blocked by the missing accepted SHA. Production frontend hosting was not changed.
 
 ## Portal submission draft
 

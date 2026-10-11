@@ -37,4 +37,4 @@ def direct_vm():
 def bibet(direct_vm, accounts):
     direct_vm.sender = accounts[0]
     with direct_vm.activate():
-        yield deploy_contract("contracts/bibet.py", direct_vm)
+        yield deploy_contract("contracts/bibet.py", direct_vm, sdk_version=os.environ.get("GENVM_VERSION"))

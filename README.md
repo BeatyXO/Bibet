@@ -122,7 +122,7 @@ Latest results:
 - TypeScript: passed
 - ESLint: passed
 - Next build: passed
-- Direct Mode pytest: 24 passed, 0 failed in the latest GitHub Actions run
+- Direct Mode pytest: 25 passed locally with the repository's pinned GenVM version; the linked GitHub Actions run predates the final adversarial test additions (24 passed there)
 - Supplementary allocation vectors: 13 passed, 0 failed
 - Supplementary static checks: 62 passed, 0 failed
 - StudioNet community funding/refunds: two distinct sponsors deposited `0.1 GEN` each, locked the ledger, then withdrew exact refunds after the live review missed consensus and the contract applied its expiry fallback. See the proof transactions below.

@@ -1,6 +1,7 @@
 import json
 import hashlib
 import sys
+from gltest.direct import create_test_addresses
 
 
 ONE_GEN = 10**18
@@ -143,14 +144,26 @@ def test_community_sponsor_refunds_and_cancellation(direct_vm, bibet, accounts):
     must_revert("EXPECTED_CREATOR_ONLY", bibet.cancel_unopened_round, rid)
     direct_vm.sender = accounts[0]
     bibet.close_applications(rid)
+    must_revert("EXPECTED_SETTLED_ROUND", bibet.withdraw_sponsor_refund, rid)
     finalize_after_challenge_deadline(direct_vm, bibet, rid)
     totals = read_json(bibet.get_round_totals(rid))
     assert totals["sponsor_refund_entitlement"] == "11"
     assert totals["reserved_outstanding"] == "11"
     must_revert("EXPECTED_SPONSOR_WITHDRAWAL", bibet.withdraw_unallocated_budget, rid)
+    direct_vm.sender = accounts[3]
+    must_revert("EXPECTED_SPONSOR_ONLY", bibet.withdraw_sponsor_refund, rid)
     direct_vm.sender = accounts[1]
     bibet.withdraw_sponsor_refund(rid)
+    must_revert("EXPECTED_REFUND_AVAILABLE", bibet.withdraw_sponsor_refund, rid)
+    assert int(read_json(bibet.get_sponsor(rid, "0x" + accounts[1].hex()))["withdrawn"]) == 3
     assert read_json(bibet.get_round_totals(rid))["reserved_outstanding"] == "8"
+    # The creator can withdraw its own sponsor share without consuming the third sponsor's claim.
+    direct_vm.sender = accounts[0]
+    bibet.withdraw_sponsor_refund(rid)
+    must_revert("EXPECTED_REFUND_AVAILABLE", bibet.withdraw_sponsor_refund, rid)
+    assert int(read_json(bibet.get_sponsor(rid, "0x" + accounts[0].hex()))["withdrawn"]) == 3
+    assert int(read_json(bibet.get_sponsor(rid, "0x" + accounts[2].hex()))["withdrawn"]) == 0
+    assert read_json(bibet.get_round_totals(rid))["reserved_outstanding"] == "5"
 
     # A second round cancels before opening; each contributor independently owns its deposit.
     direct_vm.sender = accounts[0]
@@ -203,8 +216,55 @@ def test_community_partial_allocation_refunds_are_proportional(direct_vm, bibet,
     assert int(totals["sponsor_refund_entitlement"]) == 3 * ONE_GEN
     assert int(totals["allocated_amount"]) + int(totals["sponsor_refund_entitlement"]) == 4 * ONE_GEN
     assert int(totals["reserved_outstanding"]) == 4 * ONE_GEN
+    assert totals["contributor_claimable"] == str(ONE_GEN)
     sponsors = [read_json(bibet.get_sponsor(rid, "0x" + sender.hex())) for sender in (accounts[0], accounts[2])]
     assert [int(row["refund"]) for row in sponsors] == [3 * ONE_GEN // 4, 9 * ONE_GEN // 4]
+
+    # A non-sponsor cannot withdraw; each sponsor can claim only its own share once.
+    direct_vm.sender = accounts[1]
+    must_revert("EXPECTED_SPONSOR_ONLY", bibet.withdraw_sponsor_refund, rid)
+    direct_vm.sender = accounts[2]
+    bibet.withdraw_sponsor_refund(rid)
+    must_revert("EXPECTED_REFUND_AVAILABLE", bibet.withdraw_sponsor_refund, rid)
+    totals = read_json(bibet.get_round_totals(rid))
+    assert totals["sponsor_refunds_withdrawn"] == str(9 * ONE_GEN // 4)
+    assert totals["reserved_outstanding"] == str(7 * ONE_GEN // 4)
+    assert totals["contributor_claimable"] == str(ONE_GEN)
+
+    direct_vm.sender = accounts[0]
+    bibet.withdraw_sponsor_refund(rid)
+    totals = read_json(bibet.get_round_totals(rid))
+    assert totals["sponsor_refunds_withdrawn"] == str(3 * ONE_GEN)
+    assert totals["reserved_outstanding"] == str(ONE_GEN)
+    assert totals["contributor_claimable"] == str(ONE_GEN)
+
+
+def test_community_max_sponsors_and_bounded_pagination(direct_vm, bibet, accounts):
+    direct_vm.sender = accounts[0]
+    round_id = bibet.create_round(cfg(funding_model="community", title="Sponsor cap boundary"))
+    senders = create_test_addresses(81)
+    for sender in senders[:80]:
+        direct_vm.sender = sender
+        direct_vm.value = 1
+        bibet.fund_round(round_id)
+
+    direct_vm.sender = senders[80]
+    direct_vm.value = 1
+    must_revert("EXPECTED_SPONSOR_LIMIT", bibet.fund_round, round_id)
+    direct_vm.value = 0
+
+    first_page = read_json(bibet.list_sponsors(round_id, "0", "20"))
+    last_page = read_json(bibet.list_sponsors(round_id, "60", "20"))
+    empty_page = read_json(bibet.list_sponsors(round_id, "80", "20"))
+    clamped_page = read_json(bibet.list_sponsors(round_id, "-1", "1000"))
+    assert first_page["total"] == 80 and len(first_page["sponsors"]) == 20
+    assert last_page["total"] == 80 and len(last_page["sponsors"]) == 20
+    assert empty_page["total"] == 80 and empty_page["sponsors"] == []
+    assert clamped_page["total"] == 80 and len(clamped_page["sponsors"]) == 20
+    assert read_json(bibet.get_sponsor(round_id, "0x" + "ff" * 20)) == {}
+    totals = read_json(bibet.get_round_totals(round_id))
+    assert totals["funded_budget"] == "80"
+    assert totals["sponsor_count"] == "80"
 
 
 def test_full_positive_lifecycle_settlement_invariants(direct_vm, bibet, accounts):
