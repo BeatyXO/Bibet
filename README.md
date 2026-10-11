@@ -120,14 +120,14 @@ npm run verify:schema
 
 Latest results:
 
-- GenVM lint: contract-lint passed in [the latest mainline CI run](https://github.com/BeatyXO/Bibet/actions/runs/38173614663)
+- GenVM lint: contract-lint passed in the [mainline release CI run](https://github.com/BeatyXO/Bibet/actions/runs/38173614663); the final verification PR adds no contract-source changes
 - Deployed schema: verified on `0xD9e257C0659afe75ff55c76dB76971B3f1bA2FFD`; protocol version `community-funded-v1`
 - TypeScript: passed
 - ESLint: passed
 - Next build: passed
-- Direct Mode pytest: 25 passed locally with the repository's pinned GenVM version; the latest mainline GitHub Actions run passed the direct-mode job
+- Direct Mode pytest: 25 passed locally with the repository's pinned GenVM version (`v0.2.16`), including partial allocation, each sponsor's proportional refund withdrawal, the contributor's one-time allocation claim, and zero final reserve
 - Supplementary allocation vectors: 13 passed, 0 failed
-- Supplementary static checks: 62 passed, 0 failed
+- Supplementary static checks: 63 passed, 0 failed
 - StudioNet community funding/refunds: two distinct sponsors deposited `0.1 GEN` each, locked the ledger, then withdrew exact refunds after the live review missed consensus and the contract applied its expiry fallback. See the proof transactions below.
 
 The transactions in the following older lifecycle proof belong to an earlier deployment and are retained as historical evidence only. They are not the current CA proof.
@@ -146,6 +146,8 @@ Round `2` on `0xD9e257C0659afe75ff55c76dB76971B3f1bA2FFD` received `0.1 GEN` fro
 - The final ledger records both `0.1 GEN` refunds withdrawn and zero outstanding reserve.
 
 The claim-review limitation is material: a positive validator verdict or contributor allocation was not demonstrated. See [`docs/community-funded-rounds.md`](docs/community-funded-rounds.md) for exact receipt links and the release gate matrix.
+
+The production Chrome create-round check also exposed a frontend receipt false-failure: the SDK waiter defaulted to `ACCEPTED` and returned before finalization. [Transaction `0x0f4755...0e898f71`](https://explorer-studio.genlayer.com/transactions/0x0f4755cdbf39d01157751aaaf2eafe576c55695002258d7ae4096f630e898f71) is finalized with successful execution and returned round `3`. The frontend now waits explicitly for `FINALIZED`; the signed funding-button confirmation remains pending production deployment and is tracked in the milestone verification record.
 
 ### Historical StudioNet lifecycle proof — previous deployment only
 
