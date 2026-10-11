@@ -9,8 +9,8 @@ export default function StartPage() {
           <div className="sectionKicker">START A ROUND</div>
           <h1>Create the funding round</h1>
           <p>
-            Start the on-chain round first, then fund and lock it when the budget is ready. BIBET supports injected
-            wallets and locally generated browser wallets for Studionet writes.
+            Start the on-chain round first, then fund and lock it when the budget is ready. Connect an injected wallet
+            to create rounds and send Studionet transactions.
           </p>
         </div>
         <StartRoundForm />

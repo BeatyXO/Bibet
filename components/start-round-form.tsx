@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { ArrowUpRight, ExternalLink, Plus } from "lucide-react";
-import { createAccount, createClient } from "genlayer-js";
+import { createClient } from "genlayer-js";
 import { BIBET_CHAIN, BIBET_CONTRACT, explorerTx, readClient } from "../lib/config";
-import { getGeneratedKey } from "../lib/wallet";
+import { ensureInjectedChain } from "../lib/wallet";
+import { finalizedExecution } from "../lib/receipt";
 import { useWallet } from "./wallet-provider";
 
 export function StartRoundForm() {
@@ -12,6 +13,7 @@ export function StartRoundForm() {
   const [roundTitle, setRoundTitle] = useState("");
   const [roundWindow, setRoundWindow] = useState("");
   const [roundBudget, setRoundBudget] = useState("");
+  const [fundingModel, setFundingModel] = useState<"creator" | "community">("community");
   const [maxShareBps, setMaxShareBps] = useState("2500");
   const [applicationCloseAfter, setApplicationCloseAfter] = useState("");
   const [reviewDeadlineAt, setReviewDeadlineAt] = useState("");
@@ -39,6 +41,7 @@ export function StartRoundForm() {
         policy_version: "bibet-studionet-v1",
         max_share_bps: Number(maxShareBps),
         planned_budget_gen: roundBudget.trim() || "0",
+        funding_model: fundingModel,
         application_close_after: isoDeadline(applicationCloseAfter),
         review_deadline_at: isoDeadline(reviewDeadlineAt),
         challenge_deadline_at: isoDeadline(challengeDeadlineAt),
@@ -55,31 +58,25 @@ export function StartRoundForm() {
         config.challenge_deadline_at,
         config.finalization_deadline_at,
       ]);
+      if (fundingModel === "community") {
+        let version: unknown;
+        try { version = await readClient.readContract({ address: BIBET_CONTRACT, functionName: "get_protocol_version", args: [] }); }
+        catch { throw new Error("Community funding is unavailable on the current contract deployment."); }
+        if (version !== "community-funded-v1") throw new Error("Community funding is unavailable on the current contract deployment.");
+      }
       const beforeRaw = await readClient.readContract({ address: BIBET_CONTRACT, functionName: "get_round_count", args: [] });
       const before = Number(beforeRaw || 0);
       setTxState("Preparing create_round transaction...");
 
-      if (mode === "generated") {
-        const key = getGeneratedKey();
-        if (!key) throw new Error("Browser wallet key was not found.");
-        const account = createAccount(key as `0x${string}`);
-        const client = createClient({ chain: BIBET_CHAIN, account });
-        const hash = await client.writeContract({ account, address: BIBET_CONTRACT, functionName: "create_round", args: [JSON.stringify(config)], value: 0n, consensusMaxRotations: 3 });
-        setRoundTx(hash);
-        setTxState("Waiting for GenLayer consensus...");
-        const receipt = await client.waitForTransactionReceipt({ hash, interval: 5000, retries: 90 });
-        setRoundId(await discoverCreatedRound(before, address, config.title, config.historical_window));
-        setTxState(`Round created. Status ${receipt.statusName ?? receipt.status}, result ${receipt.resultName ?? receipt.result}.`);
-        return;
-      }
-
+      await ensureInjectedChain(BIBET_CHAIN);
       const client = createClient({ chain: BIBET_CHAIN, account: address as `0x${string}`, provider: window.ethereum as never });
       const hash = await client.writeContract({ address: BIBET_CONTRACT, functionName: "create_round", args: [JSON.stringify(config)], value: 0n, consensusMaxRotations: 3 });
       setRoundTx(hash);
       setTxState("Transaction submitted from injected wallet. Waiting for GenLayer consensus...");
       const receipt = await client.waitForTransactionReceipt({ hash, interval: 5000, retries: 90 });
-      setRoundId(await discoverCreatedRound(before, address, config.title, config.historical_window));
-      setTxState(`Round created. Status ${receipt.statusName ?? receipt.status}, result ${receipt.resultName ?? receipt.result}.`);
+      const outcome = finalizedExecution(receipt);
+      if (outcome.ok) setRoundId(await discoverCreatedRound(before, address, config.title, config.historical_window));
+      setTxState(`Create round: ${outcome.message}`);
     } catch (error) {
       setTxState(error instanceof Error ? error.message : "Could not start the round.");
     }
@@ -91,6 +88,7 @@ export function StartRoundForm() {
       <label>Historical window<input value={roundWindow} onChange={(event) => setRoundWindow(event.target.value)} placeholder="Example: 2026-01-01/2026-06-30" /></label>
       <label>Max recipient share bps<input value={maxShareBps} onChange={(event) => setMaxShareBps(event.target.value)} placeholder="2500" /></label>
       <label>Planned budget note<input value={roundBudget} onChange={(event) => setRoundBudget(event.target.value)} placeholder="Example: 50000 GEN" /></label>
+      <label>Funding model<select value={fundingModel} onChange={event => setFundingModel(event.target.value as "creator" | "community")}><option value="community">Community funded — sponsors own proportional unused funds</option><option value="creator">Creator funded — creator receives unused funds</option></select></label>
       <label>Application close deadline<input type="datetime-local" value={applicationCloseAfter} onChange={(event) => setApplicationCloseAfter(event.target.value)} /></label>
       <label>Review deadline<input type="datetime-local" value={reviewDeadlineAt} onChange={(event) => setReviewDeadlineAt(event.target.value)} /></label>
       <label>Challenge deadline<input type="datetime-local" value={challengeDeadlineAt} onChange={(event) => setChallengeDeadlineAt(event.target.value)} /></label>

@@ -1,6 +1,7 @@
 import json
 import hashlib
 import sys
+from gltest.direct import create_test_addresses
 
 
 ONE_GEN = 10**18
@@ -119,6 +120,151 @@ def warp(vm, timestamp):
 def finalize_after_challenge_deadline(vm, contract, round_id="1"):
     warp(vm, "2026-08-30T13:30:01Z")
     contract.finalize_round(round_id)
+
+
+def test_community_sponsor_refunds_and_cancellation(direct_vm, bibet, accounts):
+    direct_vm.sender = accounts[0]
+    rid = bibet.create_round(cfg(funding_model="community"))
+    for sender, amount in ((accounts[0], 3), (accounts[1], 2), (accounts[2], 5), (accounts[1], 1)):
+        direct_vm.sender = sender
+        direct_vm.value = amount
+        bibet.fund_round(rid)
+    direct_vm.value = 0
+    ledger = read_json(bibet.get_afterledger(rid))
+    assert ledger["round"]["budget"] == "11"
+    assert [int(row["amount"]) for row in ledger["sponsors"]] == [3, 3, 5]
+    direct_vm.sender = accounts[3]
+    must_revert("EXPECTED_SETTLED_ROUND", bibet.withdraw_sponsor_refund, rid)
+    direct_vm.sender = accounts[0]
+    bibet.lock_round(rid)
+    direct_vm.sender = accounts[3]
+    direct_vm.value = 1
+    must_revert("EXPECTED_FUNDING_CLOSED", bibet.fund_round, rid)
+    direct_vm.value = 0
+    must_revert("EXPECTED_CREATOR_ONLY", bibet.cancel_unopened_round, rid)
+    direct_vm.sender = accounts[0]
+    bibet.close_applications(rid)
+    must_revert("EXPECTED_SETTLED_ROUND", bibet.withdraw_sponsor_refund, rid)
+    finalize_after_challenge_deadline(direct_vm, bibet, rid)
+    totals = read_json(bibet.get_round_totals(rid))
+    assert totals["sponsor_refund_entitlement"] == "11"
+    assert totals["reserved_outstanding"] == "11"
+    must_revert("EXPECTED_SPONSOR_WITHDRAWAL", bibet.withdraw_unallocated_budget, rid)
+    direct_vm.sender = accounts[3]
+    must_revert("EXPECTED_SPONSOR_ONLY", bibet.withdraw_sponsor_refund, rid)
+    direct_vm.sender = accounts[1]
+    bibet.withdraw_sponsor_refund(rid)
+    must_revert("EXPECTED_REFUND_AVAILABLE", bibet.withdraw_sponsor_refund, rid)
+    assert int(read_json(bibet.get_sponsor(rid, "0x" + accounts[1].hex()))["withdrawn"]) == 3
+    assert read_json(bibet.get_round_totals(rid))["reserved_outstanding"] == "8"
+    # The creator can withdraw its own sponsor share without consuming the third sponsor's claim.
+    direct_vm.sender = accounts[0]
+    bibet.withdraw_sponsor_refund(rid)
+    must_revert("EXPECTED_REFUND_AVAILABLE", bibet.withdraw_sponsor_refund, rid)
+    assert int(read_json(bibet.get_sponsor(rid, "0x" + accounts[0].hex()))["withdrawn"]) == 3
+    assert int(read_json(bibet.get_sponsor(rid, "0x" + accounts[2].hex()))["withdrawn"]) == 0
+    assert read_json(bibet.get_round_totals(rid))["reserved_outstanding"] == "5"
+
+    # A second round cancels before opening; each contributor independently owns its deposit.
+    direct_vm.sender = accounts[0]
+    canceled = bibet.create_round(cfg(funding_model="community", title="Cancelable community round"))
+    direct_vm.sender = accounts[1]
+    direct_vm.value = 7
+    bibet.fund_round(canceled)
+    direct_vm.sender = accounts[2]
+    direct_vm.value = 4
+    bibet.fund_round(canceled)
+    direct_vm.value = 0
+    direct_vm.sender = accounts[0]
+    bibet.cancel_unopened_round(canceled)
+    must_revert("EXPECTED_SPONSOR_ONLY", bibet.withdraw_sponsor_refund, canceled)
+    for sender, amount in ((accounts[1], 7), (accounts[2], 4)):
+        direct_vm.sender = sender
+        bibet.withdraw_sponsor_refund(canceled)
+        row = read_json(bibet.get_sponsor(canceled, "0x" + sender.hex()))
+        assert int(row["withdrawn"]) == amount
+        must_revert("EXPECTED_REFUND_AVAILABLE", bibet.withdraw_sponsor_refund, canceled)
+    totals = read_json(bibet.get_round_totals(canceled))
+    assert totals["sponsor_refunds_withdrawn"] == "11"
+
+
+def test_community_partial_allocation_refunds_are_proportional(direct_vm, bibet, accounts):
+    direct_vm.sender = accounts[0]
+    rid = bibet.create_round(cfg(funding_model="community", title="Partially allocated community round"))
+    direct_vm.value = 1 * ONE_GEN
+    bibet.fund_round(rid)
+    direct_vm.sender = accounts[2]
+    direct_vm.value = 3 * ONE_GEN
+    bibet.fund_round(rid)
+    direct_vm.value = 0
+    direct_vm.sender = accounts[0]
+    bibet.lock_round(rid)
+    direct_vm.sender = accounts[1]
+    bibet.submit_trace_claim(rid, claim())
+    direct_vm.sender = accounts[0]
+    bibet.close_applications(rid)
+    direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": DEFAULT_EVIDENCE_BODY})
+    direct_vm.mock_llm(r".*", verdict(80))
+    bibet.request_impact_review(rid, "1")
+    assert direct_vm.run_validator() is True
+    finalize_after_challenge_deadline(direct_vm, bibet, rid)
+
+    allocation = read_json(bibet.get_allocation(rid, "1"))
+    totals = read_json(bibet.get_round_totals(rid))
+    assert int(allocation["amount"]) == ONE_GEN
+    assert int(totals["allocated_amount"]) == ONE_GEN
+    assert int(totals["sponsor_refund_entitlement"]) == 3 * ONE_GEN
+    assert int(totals["allocated_amount"]) + int(totals["sponsor_refund_entitlement"]) == 4 * ONE_GEN
+    assert int(totals["reserved_outstanding"]) == 4 * ONE_GEN
+    assert totals["contributor_claimable"] == str(ONE_GEN)
+    sponsors = [read_json(bibet.get_sponsor(rid, "0x" + sender.hex())) for sender in (accounts[0], accounts[2])]
+    assert [int(row["refund"]) for row in sponsors] == [3 * ONE_GEN // 4, 9 * ONE_GEN // 4]
+
+    # A non-sponsor cannot withdraw; each sponsor can claim only its own share once.
+    direct_vm.sender = accounts[1]
+    must_revert("EXPECTED_SPONSOR_ONLY", bibet.withdraw_sponsor_refund, rid)
+    direct_vm.sender = accounts[2]
+    bibet.withdraw_sponsor_refund(rid)
+    must_revert("EXPECTED_REFUND_AVAILABLE", bibet.withdraw_sponsor_refund, rid)
+    totals = read_json(bibet.get_round_totals(rid))
+    assert totals["sponsor_refunds_withdrawn"] == str(9 * ONE_GEN // 4)
+    assert totals["reserved_outstanding"] == str(7 * ONE_GEN // 4)
+    assert totals["contributor_claimable"] == str(ONE_GEN)
+
+    direct_vm.sender = accounts[0]
+    bibet.withdraw_sponsor_refund(rid)
+    totals = read_json(bibet.get_round_totals(rid))
+    assert totals["sponsor_refunds_withdrawn"] == str(3 * ONE_GEN)
+    assert totals["reserved_outstanding"] == str(ONE_GEN)
+    assert totals["contributor_claimable"] == str(ONE_GEN)
+
+
+def test_community_max_sponsors_and_bounded_pagination(direct_vm, bibet, accounts):
+    direct_vm.sender = accounts[0]
+    round_id = bibet.create_round(cfg(funding_model="community", title="Sponsor cap boundary"))
+    senders = create_test_addresses(81)
+    for sender in senders[:80]:
+        direct_vm.sender = sender
+        direct_vm.value = 1
+        bibet.fund_round(round_id)
+
+    direct_vm.sender = senders[80]
+    direct_vm.value = 1
+    must_revert("EXPECTED_SPONSOR_LIMIT", bibet.fund_round, round_id)
+    direct_vm.value = 0
+
+    first_page = read_json(bibet.list_sponsors(round_id, "0", "20"))
+    last_page = read_json(bibet.list_sponsors(round_id, "60", "20"))
+    empty_page = read_json(bibet.list_sponsors(round_id, "80", "20"))
+    clamped_page = read_json(bibet.list_sponsors(round_id, "-1", "1000"))
+    assert first_page["total"] == 80 and len(first_page["sponsors"]) == 20
+    assert last_page["total"] == 80 and len(last_page["sponsors"]) == 20
+    assert empty_page["total"] == 80 and empty_page["sponsors"] == []
+    assert clamped_page["total"] == 80 and len(clamped_page["sponsors"]) == 20
+    assert read_json(bibet.get_sponsor(round_id, "0x" + "ff" * 20)) == {}
+    totals = read_json(bibet.get_round_totals(round_id))
+    assert totals["funded_budget"] == "80"
+    assert totals["sponsor_count"] == "80"
 
 
 def test_full_positive_lifecycle_settlement_invariants(direct_vm, bibet, accounts):
@@ -264,10 +410,12 @@ def test_insufficient_evidence_zeroes_allocation(direct_vm, bibet, accounts):
 
 
 def test_challenge_after_deadline_fails(direct_vm, bibet, accounts):
-    round_id = open_review_round(direct_vm, bibet, accounts, cfg_json=cfg(review_deadline_at="", challenge_deadline_at="2026-08-30T11:00:00Z"))
+    warp(direct_vm, "2026-08-30T10:00:00Z")
+    round_id = open_review_round(direct_vm, bibet, accounts, cfg_json=cfg(review_deadline_at="2026-08-30T10:30:00Z", challenge_deadline_at="2026-08-30T11:00:00Z"))
     direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": DEFAULT_EVIDENCE_BODY})
     direct_vm.mock_llm(r".*", verdict(70))
     bibet.request_impact_review(round_id, "1")
+    warp(direct_vm, "2026-08-30T12:00:00Z")
     direct_vm.sender = accounts[2]
     must_revert("EXPECTED_CHALLENGE_DEADLINE", bibet.open_challenge, round_id, "1", "evidence_quality", "Late challenge cannot grief finalization.", challenge_payload("https://challenge.example/a"))
 
@@ -474,7 +622,7 @@ def test_challenge_exactly_at_deadline_fails(direct_vm, bibet, accounts):
         direct_vm,
         bibet,
         accounts,
-        cfg_json=cfg(review_deadline_at="", challenge_deadline_at="2026-08-30T12:00:00Z"),
+        cfg_json=cfg(review_deadline_at="2026-08-30T12:00:00Z", challenge_deadline_at="2026-08-30T12:00:00Z"),
     )
     direct_vm.mock_web(r"evidence\.example", {"status": 200, "body": "good evidence"})
     direct_vm.mock_llm(r".*", verdict(70))
