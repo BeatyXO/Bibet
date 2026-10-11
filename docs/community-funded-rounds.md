@@ -14,31 +14,31 @@ The settled accounting view exposes contributor allocations and claims, sponsor 
 
 ## Verification status
 
-Local TypeScript typecheck, 63 contract static checks, 13 allocation vectors, three isolated sponsor partition tests, six receipt cases, ESLint, and production build completed successfully during this implementation session. GenVM lint's three syntax checks passed, but SDK validation failed because its requested pinned runner archive could not be loaded. Direct Mode failed during fixture setup with `No py-genlayer runners found in tarball`; no Direct Mode test body ran. These environment failures are not recorded as contract test passes. The repository-local GenLayer CLI is installed and reports version `0.39.1`.
+The [GitHub Actions run](https://github.com/BeatyXO/Bibet/actions/runs/38129824794) passed all four jobs: 23 Direct Mode tests, 63 contract static checks, 13 allocation vectors, three isolated sponsor partition tests, six receipt cases, GenVM lint, TypeScript typecheck, ESLint, and production build. On this Windows machine, GenVM SDK validation and Direct Mode fixture setup could not load the pinned runner archive; the Linux CI runner successfully cached it and ran the complete suite. The repository-local GenLayer CLI reports version `0.39.1`. Contract source SHA-256 is `FC51F64186393BE43EAC159991A9DE93A622D98024E24971838428F439FA3B88`.
 
 The production dependency tree reports zero npm advisories after upgrading Next.js to `16.4.0` and applying compatible lockfile fixes. Development dependencies still report advisories through the pinned GenLayer CLI and ESLint dependency tree; npm's offered force fix would downgrade the required CLI and is not applied.
 
-No upgraded contract has been deployed. There are no new sponsor transactions, refunds, source parity proof, production frontend deployment, or green GitHub Actions run to cite. The currently configured frontend contract address still points to the legacy deployment and must be updated only after a verified new deployment. A temporary isolated GitHub login is available for branch delivery; the preexisting GitHub configurations are unchanged. This checkout contains no deployment wallet environment file or linked Vercel project. Per the owner's latest direction, Vercel will not be touched during this delivery.
+No upgraded contract has been deployed. There are no new sponsor transactions, refunds, source parity proof, or production frontend deployment to cite. The currently configured frontend contract address still points to the legacy deployment and must be updated only after a verified new deployment. Community round creation is explicitly blocked on that legacy contract by a protocol-version read. A temporary isolated GitHub login was used for branch delivery; the preexisting GitHub configurations are unchanged. This checkout contains no deployment wallet environment file. Per the owner's latest direction, no direct Vercel action is taken. The existing GitHub integration automatically produced a PR preview; it is not a production deployment or a community funding proof.
 
 ## Release gates
 
 | Gate | Status | Evidence or next action |
 |---|---|---|
 | G1 Original project preserved | PASS | Clone and branch retain original history; starting SHA above. |
-| G2 Multiple sponsors fund a round | FAIL | Implemented locally; Direct Mode and live proof pending. |
-| G3 Immutable lock snapshot | FAIL | Implemented locally; Direct Mode and live proof pending. |
-| G4 Review lifecycle preserved | FAIL | Existing methods retained; regression test blocked at setup. |
-| G5 Contributor allocation math | FAIL | 13 vectors pass; Direct Mode regression blocked. |
-| G6 Exact sponsor refunds | FAIL | Implementation pending executable contract verification. |
-| G7 Unauthorized/double withdrawals | FAIL | Guards implemented; Direct Mode verification blocked. |
-| G8 Original behavior | FAIL | Legacy path retained; regression suite blocked. |
-| G9 Adversarial contract tests | EXTERNALLY BLOCKED | Pinned GenVM runner unavailable; restore SDK archive and rerun. |
+| G2 Multiple sponsors fund a round | FAIL | Distinct Direct Mode senders passed; live wallets pending. |
+| G3 Immutable lock snapshot | PASS | Direct Mode rejects deposits after lock. |
+| G4 Review lifecycle preserved | PASS | Existing Direct Mode review and challenge regressions pass. |
+| G5 Contributor allocation math | PASS | 13 allocation vectors and Direct Mode regressions pass. |
+| G6 Exact sponsor refunds | FAIL | Partition vectors and all-refund Direct Mode case pass; a partial-allocation community round remains untested. |
+| G7 Unauthorized/double withdrawals | FAIL | Canceled-round authorization and repeat-withdrawal checks pass; finalized refund adversarial cases remain. |
+| G8 Original behavior | PASS | Legacy Direct Mode settlement and lifecycle regressions pass. |
+| G9 Adversarial contract tests | FAIL | 23 Direct Mode tests pass; the milestone's full requested adversarial matrix remains incomplete. |
 | G10 Frontend checks | PASS | Typecheck, ESLint, build and receipt cases passed locally. |
-| G11 Contract deployment | EXTERNALLY BLOCKED | Authorized wallet unavailable; deploy after contract validation. |
+| G11 Contract deployment | EXTERNALLY BLOCKED | Authorized deployment wallet unavailable; deploy after contract validation. |
 | G12 Live multi-sponsor lifecycle | EXTERNALLY BLOCKED | Requires verified deployment and two funded wallets. |
 | G13 Live refunds | EXTERNALLY BLOCKED | Requires G12. |
-| G14 Production frontend | EXTERNALLY BLOCKED | Vercel project access absent and G11 pending. |
-| G15 GitHub CI | EXTERNALLY BLOCKED | GitHub credentials invalid; push and check run after full validation. |
+| G14 Production frontend | EXTERNALLY BLOCKED | Owner requested GitHub-only delivery; G11 is also pending. |
+| G15 GitHub CI | PASS | All four jobs passed in the linked GitHub Actions run. |
 | G16 Immutable comparison | EXTERNALLY BLOCKED | Accepted baseline SHA unavailable and no final release SHA. |
 
 These statuses describe the current branch, not a completed release. No Portal submission should claim this milestone as complete yet.
